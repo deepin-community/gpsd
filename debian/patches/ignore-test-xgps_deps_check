@@ -1,0 +1,77 @@
+Index: pkg-gpsd/SConscript
+===================================================================
+--- pkg-gpsd.orig/SConscript
++++ pkg-gpsd/SConscript
+@@ -1607,40 +1607,6 @@ if not cleaning and not helping and conf
+ 
+         config.env['xgps_deps'] = True
+ 
+-        # check for pycairo
+-        if not config.GetPythonValue('module cairo (pycairo)',
+-                                     'import cairo', '"found"'):
+-            # no pycairo, used by xgps, xgpsspeed
+-            config.env['xgps_deps'] = False
+-            announce("WARNING: Python module cairo (pycairo) not found.")
+-
+-        # check for pygobject
+-        if not config.GetPythonValue('module gi (pygobject)',
+-                                     'import gi', '"found"'):
+-            # no pygobject, used by xgps, xgpsspeed
+-            config.env['xgps_deps'] = False
+-            announce("WARNING: Python module gi (pygobject) not found.")
+-
+-        # gtk+ needed by pygobject
+-        if not config.CheckPKG('gtk+-3.0'):
+-            config.env['xgps_deps'] = False
+-            announce("WARNING: gtk+-3.0 not found.")
+-
+-        if not config.env['xgps_deps']:
+-            announce("WARNING: xgps and xgpsspeed are missing runtime "
+-                     "dependencies", end=True)
+-
+-        if not env['xgps']:
+-            # xgps* turned off by option
+-            config.env['xgps_deps'] = False
+-
+-        # check for matplotlib
+-        if not config.GetPythonValue('module matplotlib',
+-                                     'import matplotlib', '"found"'):
+-            # no matplotlib, used by gpsplot
+-            announce("WARNING: gpsplot is missing required "
+-                     "runtime module matplotlib", end=True)
+-
+         config.env['PYTHON'] = target_python_path
+         # For regress-driver
+         config.env['ENV']['PYTHON'] = target_python_path
+@@ -2089,7 +2055,6 @@ python_misc = [
+     "maskaudit.py",
+     "tests/test_clienthelpers.py",
+     "tests/test_misc.py",
+-    "tests/test_xgps_deps.py",
+     "www/gpscap.py",
+     "valgrind-audit.py"
+ ]
+@@ -2985,15 +2950,6 @@ method_regress = UtilityWithHerald(
+     'method-regress', [test_packet], [
+         '$SRCDIR/tests/test_packet -c >/dev/null', ])
+ 
+-# Test the xgps/xgpsspeed dependencies
+-if env['xgps_deps']:
+-    test_xgps_deps = UtilityWithHerald(
+-        'Testing xgps/xgpsspeed dependencies (since xgps=yes)...',
+-        'test-xgps-deps', ['$SRCDIR/tests/test_xgps_deps.py'], [
+-            '$PYTHON $SRCDIR/tests/test_xgps_deps.py'])
+-else:
+-    test_xgps_deps = None
+-
+ # Run test builds on remote machines
+ flocktest = Utility("flocktest", [], "cd devtools; ./flocktest " + gitrepo)
+ 
+@@ -3017,7 +2973,6 @@ test_nondaemon = [
+     method_regress,
+     packet_regress,
+     rtcm_regress,
+-    test_xgps_deps,
+     time_regress,
+     timespec_regress,
+     # trig_regress,  # not ready
