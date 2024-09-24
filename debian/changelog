@@ -1,3 +1,9 @@
+gpsd (3.25-2deepin1) unstable; urgency=medium
+
+  * Remove makedev from build-dep
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Tue, 24 Sep 2024 22:24:38 +0800
+
 gpsd (3.25-2) unstable; urgency=medium
 
   [ Boian Bonev ]
