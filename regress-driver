@@ -30,7 +30,20 @@ fi
 # not export the pre-defined/configured directories, so we have to
 # define them on our own. For default installations of distutils the
 # chosen values here will match what distutils uses.
-py_libdir=`pwd`/build/`${PYTHON} -c 'import distutils.util; import sys; print("lib.%s-%s" %(distutils.util.get_platform(), sys.version[0:3]))'`
+#
+# distutils loudly deprecated in 3.10, use sysconfig from 3.2
+export PROG='
+import sys
+try:
+ import sysconfig
+ n = sysconfig.get_platform()
+except:
+ import distutils.util
+ n = distutils.util.get_platform()
+print("lib.%s-%s" %(n, sys.version[0:3]))
+'
+py_libdir=`pwd`/build/`${PYTHON} -c "${PROG}"`
+
 py_scriptdir=`pwd`/build/`${PYTHON} -c 'import sys; print("scripts-%s" %(sys.version[0:3], ))'`
 if [ -d ${py_libdir} ] && [ -d ${py_scriptdir} ]; then
     PYTHONPATH=${py_libdir}
@@ -45,29 +58,31 @@ export GPSD_HOME PATH
 # this is the default key plus one.
 export GPSD_SHM_KEY=0x47505345
 
-mode=regress
-testing=daemon
-opts=""
-logfile=""
-help="0"
 baton=false
+color=""
+help="0"
+logfile=""
+mode=regress
+opts=""
 quiet=false
 quieter=false
-while getopts cl:sStbuvo:qQh opt
+testing=daemon
+while getopts bcChl:o:qQsStuv opt
 do
     case $opt in
-        c) testing=clientlib ;; # 'client' rather than the daemon
-        l) logfile=$OPTARG ;;   # Logfile to save diffs to
-        s) mode=regress ;;      # Run regression tests
-        S) mode=slowregress ;;  # Run regression tests with big delays
-        t) baton=true mode=regress ;;   # Run regression tests w/baton
-        b) mode=build ;;        # Rebuild regression check files
-        u) opts="$opts -u" ;;   # Force UDP
-        v) mode=view ;;         # View result of generating a check file
-        o) opts="$opts $OPTARG" ;;      # Pass options to gpsfake
-        q) quiet=true ;;        # Suppress header/trailer messages
-        Q) quiet=true; quieter=true ;;  # Suppress all success chatter
+        b) mode=build ;;                # Rebuild regression check files
+        c) testing=clientlib ;;         # 'client' rather than the daemon
+        C) color="--color=always" ;;    # colorize diff
         h) help="1" ;;
+        l) logfile=$OPTARG ;;           # Logfile to save diffs to
+        o) opts="$opts $OPTARG" ;;      # Pass options to gpsfake
+        q) quiet=true ;;                # Suppress header/trailer messages
+        Q) quiet=true; quieter=true ;;  # Suppress all success chatter
+        s) mode=regress ;;              # Run regression tests
+        S) mode=slowregress ;;          # Run regression tests with big delays
+        t) baton=true mode=regress ;;   # Run regression tests w/baton
+        u) opts="$opts -u" ;;           # Force UDP
+        v) mode=view ;;                 # View result of generating check file
     esac
 done
 shift $(($OPTIND - 1))
@@ -77,18 +92,19 @@ then
         echo
         echo
         echo "Regression test driver script"
-        echo "-h  - this help"
-        echo "-c  - test with 'client' rather than the daemon"
+        echo "-b             - Rebuild regression check files"
+        echo "-c             - test with 'client' rather than the daemon"
+        echo "-C             - colorize diffs"
+        echo "-h             - this help"
         echo "-l <filename>  - where to log diffs to"
-        echo "-s  - run regression tests"
-        echo "-S  - run regression tests with realistic timing delays"
-        echo "-t <ots>  - Run regression tests w/baton"
-        echo "-b  - Rebuild regression check files"
-        echo "-u  - Force UDP"
-        echo "-v  - view result of generating a check file"
-        echo "-o <opt> - Pass options to gpsfake"
-        echo "-q  - Suppress header/trailer messages"
-        echo "-Q  - Suppress all success chatter"
+        echo "-o <opt>       - Pass options to gpsfake"
+        echo "-q             - Suppress header/trailer messages"
+        echo "-Q             - Suppress all success chatter"
+        echo "-s             - run regression tests"
+        echo "-S             - run tests with realistic timing delays"
+        echo "-t <ots>       - run regression tests w/baton"
+        echo "-u             - Force UDP"
+        echo "-v             - view result of generating a check file"
         echo
 
         exit 0
@@ -148,9 +164,9 @@ case $mode in
                     trap 'rm -f ${TMP}/test-$$.chk ${TMP}/testout-$$.chk ${TMP}/testin-$$.chk ${TMP}/diff-$$; exit $errors' EXIT HUP INT TERM
                     sed -n <${f}.chk >${TMP}/testin-$$.chk ${ALTFILTER} -e 'p';
                     sed -n <${TMP}/test-$$.chk >${TMP}/testout-$$.chk ${ALTFILTER} -e 'p';
-                    diff -ub ${TMP}/testin-$$.chk ${TMP}/testout-$$.chk >${TMP}/diff-$$;
+                    diff -ub ${color} ${TMP}/testin-$$.chk ${TMP}/testout-$$.chk >${TMP}/diff-$$;
                 else
-                    diff -ub ${f}.chk ${TMP}/test-$$.chk >${TMP}/diff-$$;
+                    diff -ub ${color} ${f}.chk ${TMP}/test-$$.chk >${TMP}/diff-$$;
                 fi
                 if test -s ${TMP}/diff-$$ ; then
                     errors=`expr $errors + 1`;

@@ -22,6 +22,7 @@ GPSD Frequently Asked Questions
     width="105"><br>
     <a href="index.html">Home</a><br>
     <a href="index.html#news">News</a><br>
+    <a href="index.html#install">Installation &amp; Building</a><br>
     <a href="index.html#downloads">Downloads</a><br>
     <a href="index.html#mailing-lists">Mailing lists</a><br>
     <a href="index.html#documentation">Documentation</a><br>
@@ -62,14 +63,14 @@ GPSD Frequently Asked Questions
     <hr>
 
     <a href="https://validator.w3.org/check/referer"><img
-          src="https://www.w3.org/Icons/valid-html401"
-          alt="Valid HTML 4.01!" height="31" width="88"></a>
+          src="html5.png"
+          alt="Valid HTML 5!" height="31" width="88"></a>
 </div>
 
 <div id="Content">
 
 <ul>
-  <li>Troubleshooting GPSD: the basics
+  <li><a href='#troubleshooting'>Troubleshooting GPSD: the basics</a>
   <ul>
     <li><a href='#verify'>How can I verify operation of a new GPS?</a></li>
     <li><a href='#willitwork'>Will a GPS not on the GPSD hardware list work?</a></li>
@@ -79,7 +80,7 @@ GPSD Frequently Asked Questions
     <li><a href='#raspberry'>Time is wrong on my Raspberry Pi</a></li>
   </ul>
   </li>
-  <li>Licensing and support
+  <li><a href='#licensing'>Licensing and support</a>
   <ul>
     <li><a href='#bug-reporting'>How do I report bugs in GPSD?</a></li>
     <li><a href='#support'>What support channels does GPSD have?</a></li>
@@ -87,7 +88,7 @@ GPSD Frequently Asked Questions
     <li><a href='#commercial'>Can I use GPSD in commercial products?</a></li>
   </ul>
   </li>
-  <li>GPS performance
+  <li><a href='#performance'>GPS performance</a>
   <ul>
     <li><a href='#startup'>Why does getting a fix take so long after powerup?</a></li>
     <li><a href='#timelag'>Why does GPS time lag wall time by 11-15 seconds?</a></li>
@@ -96,17 +97,18 @@ GPSD Frequently Asked Questions
     <li><a href='#accuracy'>How can I improve fix accuracy from my GPS?</a></li>
     <li><a href='#time'>How can I improve time reference accuracy from my GPS?</a></li>
     <li><a href='#waas'>How can I tell if SBAS Augmentation (eg WAAS/EGNOS) is working?</a></li>
+    <li><a href='#toff'>Why does TOFF jump around so much?</a></li>
   </ul>
   </li>
 
-  <li>Problems with specific applications
+  <li><a href='#applications'>Problems with specific applications</a>
   <ul>
     <li><a href='#gpsdrive'>Why do I get implausibly low speeds when using gpsdrive?</a></li>
     <li><a href='#kismet'>Why do I get no results when I try to use <code>gpsd</code> with Kismet?</a></li>
   </ul>
   </li>
 
-  <li>Troubleshooting GPSD: advanced topics
+  <li><a href='#advanced'>Troubleshooting GPSD: advanced topics</a>
   <ul>
     <li><a href='#baud'>What about serial port speed (baud rate)?</a></li>
     <li><a href='#conflict'>Why does GPSD open non-GPS USB devices?</a></li>
@@ -115,15 +117,16 @@ GPSD Frequently Asked Questions
   </ul>
   </li>
 
-  <li>Application development with GPSD
+  <li><a href='#development'>Application development with GPSD</a>
   <ul>
     <li><a href='#why_not_parse_nmea'>Why use the <code>gpsd</code> protocol rather than parsing raw NMEA?</a></li>
     <li><a href='#interfacing'>How should  I interface my application with <code>gpsd</code>?</a></li>
+    <li><a href='#duplicate_fixes'>Why does my application read multiple duplicates of the same fix?</li>
     <li><a href='#almanac'>How can my application get almanac/ephemeris/pseudorange data?</a></li>
   </ul>
   </li>
 
-  <li>Linux issues
+  <li><a href='#linux'>Linux issues</a>
   <ul>
     <li><a href='#bluetooth'>Why do I have to restart <code>gpsd</code> whenever I power-cycle my Bluetooth device?</a></li>
     <li><a href='#sleep'>Why does my GPS get lost when I sleep/wake my laptop?</a></li>
@@ -134,7 +137,9 @@ GPSD Frequently Asked Questions
 <p>If none of these FAQs seems to address your problem, look at the <a
 href="upstream-bugs.html">Upstream Bugs</a> page.</p>
 
-<h1 id='verify'>How can I verify operation of a new GPS?</h1>
+<h1 id='troubleshooting'>Troubleshooting GPSD: the basics</h1>
+
+<h2 id='verify'>How can I verify operation of a new GPS?</h2>
 
 <p>1. First, check that the GPS has power. If it is a USB device, it
 needs to be cabled to a USB port to have power. All Bluetooth GPSes
@@ -195,7 +200,7 @@ vendor and product ID of your USB-serial converter device.</p>
 <p>For more detailed troubleshooting instructions, <a
 href="troubleshooting.html">see the Troubleshooting Guide</a>.</p>
 
-<h1 id='willitwork'>Will a GPS not on the GPSD hardware list work?</h1>
+<h2 id='willitwork'>Will a GPS not on the GPSD hardware list work?</h2>
 
 <p>Probably.</p>
 
@@ -228,7 +233,7 @@ say so.
 one of the common bridge chips from FTDI, Prolific or Silicon
 Laboratories. These will just work.</p>
 
-<h1 id='android'>Android reports that gpsd is draining my battery.  Help!</h1>
+<h2 id='android'>Android reports that gpsd is draining my battery.  Help!</h2>
 
 <p>Yes, Android 4.0 and later versions use gpsd to interpret the data
 stream from the onboard GPS.  No, the battery drain is not actually
@@ -247,7 +252,7 @@ Settings.  See <a
 href="http://www.gadgethelpline.com/gpsd-stop-samsung-galaxy-siiis-battery-life/">this
 blog post</a> for a fix.</p>
 
-<h1 id='garmin'>My Garmin USB GPS doesn't work.</h1>
+<h2 id='garmin'>My Garmin USB GPS doesn't work.</h2>
 
 <p>Garmin binary protocol is weird enough that it can't be handled
 through the regular serial-device layer of Linux - you couldn't tell
@@ -269,7 +274,23 @@ was working.
 <p>On the BSDs and Mac OS X, you're out of luck. As of April 2013 we
 don't know of any shim that makes USB Garmins work on these.</p>
 
-<h1 id='raspberry'>Time is wrong on my Raspberry Pi</h1>
+<h2 id='agps'>Can GPSD use Assisted GPS data from cellphone networks?</h2>
+
+<p>Sadly, no. There are both hardware and software barriers to this.</p>
+
+<p>Using AGPS would requires picking up and interpreting information
+broadcast by cellphone towers, so it would at minimum need another
+receiver (separate from the GPS mouse) operating in those frequency
+bands. Of course, a cellphone has one of those built in. Standalone
+GPS sensors don't.</p>
+
+<p>There's another level of the problem, too. Supposing we had the
+right sort of receiver, AGPS systems are carrier-dependent.  As far as
+we know there aren't any published standards for the format of the
+corrections.  So even if we had the signals, GPSD couldn't know what to
+do with them.</p>
+
+<h2 id='raspberry'>Time is wrong on my Raspberry Pi</h2>
 
 <p>The Raspberry Pi has no real-time clock.  Without this, the GPS may
 not return sufficient information to for GPSD to pin down which GPS
@@ -277,7 +298,9 @@ clock rollover period you are in.  If you set the system clock to
 some date in the current year <em>before</em> launching gpsd you
 will see correct time reports.</p>
 
-<h1 id='bug-reporting'>How do I report bugs in GPSD?</h1>
+<h1 id='licensing'>Licensing and support </h1>
+
+<h2 id='bug-reporting'>How do I report bugs in GPSD?</h2>
 
 <p>Note: Because we have been informed that some people are insane
 about this, we shall state the obvious: we welcome security-related
@@ -502,7 +525,7 @@ email report to the <a href="mail:@DEVMAIL@">GPSD developers'
 list</a>.</p>
 </blockquote>
 
-<h1 id='support'>What support channels does GPSD have?</h1>
+<h2 id='support'>What support channels does GPSD have?</h2>
 
 <p>If you are submitting a code patch or a technically detailed bug
 report, write the <a href="mail:@DEVMAIL@">GPSD developers'
@@ -521,13 +544,13 @@ engagements at reasonable rates. If you have a hard problem or a tight
 deadline or both, request an engagement via the dev list or IRC. We're
 professionals and experts and we deliver results.</p>
 
-<h1 id="license">What is the license of GPSD?</h1>
+<h2 id="license">What is the license of GPSD?</h2>
 
 <p>Most of GPSD is under the permissive BSD license.  Some portions
 are under other permissive licenses, including the MIT/X license and
 the ISC license.</p>
 
-<h1 id="commercial">Can I use GPSD in commercial products?</h1>
+<h2 id="commercial">Can I use GPSD in commercial products?</h2>
 
 <p>Yes, GPSD code can be used in commercial and for-profit deployments
 without restrictions.</p>
@@ -535,13 +558,15 @@ without restrictions.</p>
 <p>If you use GPSD to make money, please show some concern for the project's
 sustainability; @TIPLINK@.</p>
 
-<h1 id="startup">Why does getting a fix take so long after powerup?</h1>
+<h1 id='performance'>GPS performance</h1>
+
+<h2 id="startup">Why does getting a fix take so long after powerup?</h2>
 
 <p>On a Linux machine, the <code>gpsd</code> daemon normally takes
 between 0.1 and 0.6 seconds to handshake with your hardware, but this can
 vary widely.  After
 that you will receive GPS reports within a second of when the sensor
-issues them.  GPSD itself adds <a href="/performance/performance.html"
+issues them.  GPSD itself adds <a href="performance/performance.html"
 >almost nomeasurable latency</a>, but RS-232 transmission time to
 <code>gpsd</code> can be more significant; you can cut this time by
 increasing the serial port speed (baud rate).</p>
@@ -586,7 +611,7 @@ your skyview is poor. Especially if you're indoors.</p>
 
 <p>The best advice is: go outside and be patient for a few minutes.</p>
 
-<h1 id="timelag">Why does GPS time lag wall time by 11-15 seconds?</h1>
+<h2 id="timelag">Why does GPS time lag wall time by 11-15 seconds?</h2>
 
 <p>Your GPS may have dropped its leap-second offset.  You can tell you
 have this problem if your sentence timestamps look wrong at startup.
@@ -611,7 +636,7 @@ producing an accumulating stall.  The symptom of this is sentence times that
 look right at startup but gradually fall behind clock time.  To fix
 this, bump your speed to 9600 or higher.</p>
 
-<h1 id="timelag2">Why is my GPS time off by exactly one second?</h1>
+<h2 id="timelag2">Why is my GPS time off by exactly one second?</h2>
 
 <p>This can happen if (a) there has been a recent <a
 href="ftp://maia.usno.navy.mil/ser7/tai-utc.dat">leap-second
@@ -631,7 +656,7 @@ others.  Suspect this if you have persistent off-by-one errors. If you
 are able to identify other bad firmware versions, please let us
 know about it.</p>
 
-<h1 id='speed'>Why does my receiver report wildly fluctuating speed?</h1>
+<h2 id='speed'>Why does my receiver report wildly fluctuating speed?</h2>
 
 <p>If your problem is wildly fluctuating speed reports on a SiRF,
 switch on static navigation mode using the <code>M</code> command in
@@ -642,7 +667,7 @@ prevents multipath, weak signals, or poor constellation geometry
 from dragging your solutions around too much. Other receivers may
 suffer the same problem and may have a similar solution.</p>
 
-<h1 id='accuracy'>How can I improve fix accuracy from my GPS?</h1>
+<h2 id='accuracy'>How can I improve fix accuracy from my GPS?</h2>
 
 <p>Use an external antenna, and place the sensor (and/or antenna) properly.</p>
 
@@ -680,7 +705,7 @@ as much as 100-150m with respect to WGS84.  While modern datums (e.g.,
 NAD83) are almost all very close to WGS84, typically each area of
 world has an older datum that only agrees at the 100m level.</p>
 
-<h1 id='time'>How can I improve time reference accuracy from my GPS?</h1>
+<h2 id='time'>How can I improve time reference accuracy from my GPS?</h2>
 
 <p>All the measures you'd take to improve <a href="#accuracy">fix
 accuracy</a> will help. Time referencing at accuracies below
@@ -690,7 +715,7 @@ sensor and computer.</p>
 <p>There is now a <a href="gpsd-time-service-howto.html">GPSD Time
 Service HOWTO</a> that gives detailed setup instructions.</p>
 
-<h1 id='waas'>How can I tell if SBAS Augmentation (eg WAAS/EGNOS) is working?</h1>
+<h2 id='waas'>How can I tell if SBAS Augmentation (eg WAAS/EGNOS) is working?</h2>
 
 <p>The earliest SBAS systems were WAAS (North America) and EGNOS
 (Europe).  Multiple such systems exist, covering Japan (MSAS),
@@ -722,33 +747,32 @@ fact.</p>
 <p>It has been found that while SiRF-II chips generally had WAAS
 working, SiRF-III support varies by firmware level.</p>
 
-<h1 id='agps'>Can GPSD use Assisted GPS data from cellphone networks?</h1>
+<h2 id='toff'>Why does TOFF jump around so much?</h2>
 
-<p>Sadly, no. There are both hardware and software barriers to this.</p>
+<p>Your GNSS receiver uses interative math to compute its position.  That
+needs then be encoded into variable length NMEA sentences.  Plus there are
+a variable number of NMEA sentences every fix epoch.  Then they all need
+to fit through a slow serial line.</p>
 
-<p>Using AGPS would requires picking up and interpreting information
-broadcast by cellphone towers, so it would at minimum need another
-receiver (separate from the GPS mouse) operating in those frequency
-bands. Of course, a cellphone has one of those built in. Standalone
-GPS sensors don't.</p>
+<p>If you want to reduce your TOFF jitter, then use a faster serial port
+rate, and use a fixed length binary protocol. To make TOFF much less
+important, use PPS.</p1>
 
-<p>There's another level of the problem, too. Supposing we had the
-right sort of receiver, AGPS systems are carrier-dependent.  As far as
-we know there aren't any published standards for the format of the
-corrections.  So even if we had the signals, GPSD couldn't know what to
-do with them.</p>
+<h1 id='applications'>Problems with specific applications </h1>
 
-<h1 id='gpsdrive'>Why do I get implausibly low speeds when using gpsdrive?</h1>
+<h2 id='gpsdrive'>Why do I get implausibly low speeds when using gpsdrive?</h2>
 
 <p>This is a gpsdrive bug, as you can verify by running
 <code>xgps</code> alongside it.</p>
 
-<h1 id='kismet'>Why do I get no results when I try to use <code>gpsd</code> with Kismet?</h1>
+<h2 id='kismet'>Why do I get no results when I try to use <code>gpsd</code> with Kismet?</h2>
 
 <p>Your Kismet configuration has to include the setting
 "gps=true"  This is a surprisingly easy detail to forget.</p>
 
-<h1 id='baud'>What about serial port speed (baud rate)?</h1>
+<h1 id='advanced'>Troubleshooting GPSD: advanced topics</h1>
+
+<h2 id='baud'>What about serial port speed (baud rate)?</h2>
 
 <p>The <code>gpsd</code> code is designed to be autoconfiguring for both
 static and hot-plugged devices.  The <code>gpsd</code> command line
@@ -792,7 +816,7 @@ with the -f [FRAMING] option.</p>
 <p>For more details and discussion about autobaud refer to the
 <a href="hacking.html">Hacker's Guide</a>.</p>
 
-<h1 id='conflict'>Why does GPSD open non-GPS USB devices?</h1>
+<h2 id='conflict'>Why does GPSD open non-GPS USB devices?</h2>
 
 <p>Most USB devices have a defined <a
 href="https://www.usb.org/developers/defined_class">device class</a> -
@@ -849,7 +873,7 @@ it by disabling the GPSD hotplug rules.  Unfortunately, this means
 you will have to start <code>gpsd</code> manually with a device-path
 argument when you want to use a GPS.</p>
 
-<h1 id='efficiency'>What is gpsd's CPU and power overhead?</h1>
+<h2 id='efficiency'>What is gpsd's CPU and power overhead?</h2>
 
 <p>The daemon, <code>gpsd</code>, is designed to run light so it can be
 used in low-power embedded-systems deployments. Data throughput from GPSes
@@ -859,7 +883,7 @@ of its time simply waiting in select(2) at effectively zero CPU cost. Even
 with a client session and a GPS active, we have measured gpsd's CPU load
 at steadily less than 1% on a low-power, low-speed ARM SBC.</p>
 
-<h1 id='usblockup'>My USB port becomes unavailable after gpsd uses it.</h1>
+<h2 id='usblockup'>My USB port becomes unavailable after gpsd uses it.</h2>
 
 <p>Occasionally we get a bug report from a user who says a USB port
 locks up or becomes unavailable after <code>gpsd</code> has closed it.
@@ -904,7 +928,7 @@ information to allow a decent open-source driver to be written.</dd>
 able to work around it or fix it, please inform us so we can
 improve this FAQ.</p>
 
-<h1 id='lockup'>My <code>gpsd</code> sometimes stops responding overnight</h1>
+<h2 id='lockup'>My <code>gpsd</code> sometimes stops responding overnight</h2>
 
 <p>At one point in the development of <code>gpsd</code> we got a
 report of the daemon ceasing to respond to queries when run for
@@ -942,7 +966,9 @@ brought on by lots of I/O activity.</p>
 <p>Another thing to try is running <code>gpsd</code> under Valgrind overnight
 and seeing if it reports any leaks.</p>
 
-<h1 id='why_not_parse_nmea'>Why use the <code>gpsd</code> protocol rather than parsing raw NMEA?</h1>
+<h1 id='development'>Application development with GPSD</h1>
+
+<h2 id='why_not_parse_nmea'>Why use the <code>gpsd</code> protocol rather than parsing raw NMEA?</h2>
 
 <p>Some applications that use <code>gpsd</code> start raw mode
 and parse the NMEA directly.  This is not a good idea.</p>
@@ -966,7 +992,7 @@ in meters is the most obvious example; climb/sink is another.  When a GPS
 doesn't supply these, <code>gpsd</code> can fill them in using the
 same sorts of computation that more capable GPSes use.</p>
 
-<h1 id='interfacing'>How should  I interface my application with <code>gpsd</code>?</h1>
+<h2 id='interfacing'>How should I interface my application with <code>gpsd</code>?</h2>
 
 <p>The <code>gpsd</code> package provides two ways for C code to get
 data from a GPS or AIS receiver.  Both go through the libgps.a library,
@@ -994,44 +1020,41 @@ build from source that conditions out all but one of the drivers.</p>
 <p>For Python programmers, there is a gps.py module the high-level
 interface.  It exports a class that encapsulates a GPS session.</p>
 
-<h1 id='almanac'>How can my application get almanac/ephemeris/pseudorange data?</h1>
+<h2 id='#duplicate_fixes'>Why does my application read multiple duplicates of the same fix?</h2>
 
-<p>Sorry, there's no easy way to do these things through GPSD yet.
-The reason is that there is no consistent way to make GPS receivers
-report this information.</p>
+<p>A GNSS receiver takes some measurements. Later the receiver takes
+some time to calculate the postion fix. Later the receiver sends the
+results of the calculations (in unknown order) out a slow serial
+connection. There is no way to know what the receiver will send, or when
+it is done. Data just appears to *gpsd*. The *gpsd* has to accept this
+data, validate it, process it, and pass it on to its clients as JSON
+message.</p>
 
-<p>Many don't ship it at all.  Others (including some but not all
-devices shipping SiRF binary packets) ship it occasionally in SUBFRAME
-information, but you have to know exactly how to grovel through the
-SUBFRAME fields to get it and the documentation of those in
-IS-GPS-200E (the over-the-air protocol used by GPS satellites) is
-extremely obscure.  Still others report varying subsets of
-almanac/ephemeris/pseudorange data in reasonably straightforward ways,
-but in vendor-proprietary sentences that are extremely specific to
-individual receiver types, poorly documented or undocumented, and
-often needing to be activated by control sequences that are equally
-specific and even worse documented.</p>
+<p>The *gpsd* daemon could wait to get all the data for an epoch
+(measurement period) before outputing the JSON messages, but that would
+requite waiting for the next epoch data to appear, which would add a lot
+of latency. So, instead, gpsd passes in data it receives almost as soon
+as it receives it. Since many protocols (like NMEA) repeat the same data
+in many ways this leads to repeated data sent to the gpsd clients. Other
+protocols, like *ubx*, keep sending additional tidbits of data during
+the epoch, so *gpsd* has to repeat the previous data, with the new data,
+for a complete message.</p>
 
-<p>We'd like to do a better job of extracting this information, but
-handling all the potential variations would be an extremely difficult
-and messy job.  It's hard to know what to do, and even harder to know
-how to test the correctness of the extraction code once you think you
-have it. The spectacularly bad design and documentation of most
-vendor-specific GPS reporting protocols is at its abysmal worst in
-this exact area.</p>
+<h2 id='almanac'>How can my application get almanac/ephemeris/pseudorange data?</h2>
 
-<p>On a SiRF-based device you might be able to get some use out of
-the SUBFRAME JSON.  If you succeed in extracting
-almanac/ephemeris/pseudorange data from those raw fields, we salute
-you - and please share that code with us!</p>
+<p>Most receivers do not provide this data.  A few, like some *u-blox*
+models, can provide this data.  See the *gpssubframe* program, and its
+manual page, for further information.  Beware, there be dragons.</p>
 
-<h1 id='bluetooth'>Why do I have to restart <code>gpsd</code> whenever I power-cycle my Bluetooth device?</h1>
+<h1 id='linux'>Linux</h1>
+
+<h2 id='bluetooth'>Why do I have to restart <code>gpsd</code> whenever I power-cycle my Bluetooth device?</h2>
 
 <p>The Bluetooth stack returns 0 for a read from a missing device,
 rather than -1, and doesn't set errno.  This is wrong and needs to be
 fixed at OS level.</p>
 
-<h1 id='sleep'>Why does my GPS get lost when I sleep/wake my laptop?</h1>
+<h2 id='sleep'>Why does my GPS get lost when I sleep/wake my laptop?</h2>
 
 <p>This is not a GPSD problem, but a result of the way Linux handles
 USB serial devices.  In a default Linux configuration, USB serial

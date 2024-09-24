@@ -1,8 +1,12 @@
-Index: pkg-gpsd/SConscript
-===================================================================
---- pkg-gpsd.orig/SConscript
-+++ pkg-gpsd/SConscript
-@@ -1607,40 +1607,6 @@ if not cleaning and not helping and conf
+From: Bernd Zeimetz <bzed@debian.org>
+Date: Thu Jan 2 22:53:39 2020 +0100
+Subject: Ignore the build-time test for xgps deps.
+
+We'll deliver them as dependency, no worries.
+
+--- a/SConscript
++++ b/SConscript
+@@ -1656,40 +1656,6 @@ if not cleaning and not helping and conf
  
          config.env['xgps_deps'] = True
  
@@ -43,7 +47,7 @@ Index: pkg-gpsd/SConscript
          config.env['PYTHON'] = target_python_path
          # For regress-driver
          config.env['ENV']['PYTHON'] = target_python_path
-@@ -2089,7 +2055,6 @@ python_misc = [
+@@ -2179,7 +2145,6 @@ python_misc = [
      "maskaudit.py",
      "tests/test_clienthelpers.py",
      "tests/test_misc.py",
@@ -51,7 +55,7 @@ Index: pkg-gpsd/SConscript
      "www/gpscap.py",
      "valgrind-audit.py"
  ]
-@@ -2985,15 +2950,6 @@ method_regress = UtilityWithHerald(
+@@ -3106,15 +3071,6 @@ method_regress = UtilityWithHerald(
      'method-regress', [test_packet], [
          '$SRCDIR/tests/test_packet -c >/dev/null', ])
  
@@ -64,11 +68,11 @@ Index: pkg-gpsd/SConscript
 -else:
 -    test_xgps_deps = None
 -
- # Run test builds on remote machines
- flocktest = Utility("flocktest", [], "cd devtools; ./flocktest " + gitrepo)
- 
-@@ -3017,7 +2973,6 @@ test_nondaemon = [
-     method_regress,
+ # Run all normal regression tests
+ describe = UtilityWithHerald(
+     'Run normal regression tests for %s...' % gpsd_revision.strip(),
+@@ -3136,7 +3092,6 @@ test_nondaemon = [
+     mib_regress,
      packet_regress,
      rtcm_regress,
 -    test_xgps_deps,

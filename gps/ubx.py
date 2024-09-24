@@ -35,6 +35,13 @@ def erd_s(erd):
     return "%3s" % erd
 
 
+def uint2int(u, bit):
+    """Convert unsigned "bit" wide integer to signed integer"""
+    if u & (1 << (bit - 1)):
+        u -= (1 << bit)
+    return u
+
+
 # I'd like to use pypy module bitstring or bitarray, but
 # people complain when non stock python modules are used here.
 def unpack_s11(word, pos):
@@ -188,6 +195,16 @@ def unpack_u8(word, pos):
     return u[0]
 
 
+def pack_u16(number):
+    """Convert a number to 2 bytes (little endian unsigned)"""
+    return struct.pack('<H', number)
+
+
+def pack_u32(number):
+    """Convert a number to 4 bytes (little endian unsigned)"""
+    return struct.pack('<I', number)
+
+
 def flag_s(flag, descs):
     """Decode flag using descs, return a string.  Ignores unknown bits."""
 
@@ -241,7 +258,8 @@ class ubx(object):
         pass
 
     # allowable speeds
-    speeds = (460800, 230400, 153600, 115200, 57600, 38400, 19200, 9600, 4800)
+    speeds = (921600, 460800, 230400, 153600, 115200, 57600, 38400, 19200,
+              9600, 4800)
 
     # UBX Satellite Numbering
     gnss_id = {0: 'GPS',
@@ -382,6 +400,18 @@ class ubx(object):
          "ANT0 PIO number"),
         ("CFG-HW-ANT_SUP_OPEN_PIN", 0x20a30038, "U1", 1, "",
          "ANT2 PIO number"),
+        # M10S, protVer 34.00
+        ("CFG-HW-ANT_SUP_ENGINE", 0x20a30054, "E1", 1, "",
+         "Antenna supervisor engine selection"),
+        # M10S, protVer 34.00
+        ("CFG-HW-ANT_SUP_SHORT_THR", 0x20a30055, "U1", 1, "mV",
+         "Antenna supervisor MADC engine short detection threshold"),
+        # M10S, protVer 34.00
+        ("CFG-HW-ANT_SUP_OPEN_THR", 0x20a30056, "U1", 1, "mV",
+         "Antenna supervisor MADC engine open detection threshold"),
+        # M10S, protVer 34.00
+        ("CFG-HW-RF_LNA_MODE", 0x20a30057, "E1", 1, "",
+         "Mode for internal LNA"),
         # CFG-I2C
         ("CFG-I2C", 0x2051ffff, "", 0, "",
          "get all CFG-I2C"),
@@ -391,6 +421,9 @@ class ubx(object):
          "Flag to disable timeouting the interface after 1.5 s"),
         ("CFG-I2C-ENABLED", 0x10510003, "L", 1, "",
          "Flag to indicate if the I2C interface should be enabled"),
+        # M10S, protVer 34.00
+        ("CFG-I2C-REMAP", 0x10510004, "L", 1, "",
+         "I2C remapping"),
         # CFG-I2CINPROT
         ("CFG-I2CINPROT", 0x1071ffff, "", 0, "",
          "get all CFG-I2CINPROT"),
@@ -1068,6 +1101,13 @@ class ubx(object):
          "Output rate of the UBX-NAV-SBAS message on port UART2"),
         ("CFG-MSGOUT-UBX_NAV_SBAS_USB", 0x2091006d, "U1", 1, "",
          "Output rate of the UBX-NAV-SBAS message on port USB"),
+        # M10S, protVer 34.00
+        ("CFG-MSGOUT-UBX_NAV_EELL_I2V", 0x20910313, "U1", 1, "",
+         "Output rate of the UBX-NAV-EELL message on port I2C"),
+        ("CFG-MSGOUT-UBX_NAV_EELL_SPI", 0x20910317, "U1", 1, "",
+         "Output rate of the UBX-NAV-EELL message on port SPI"),
+        ("CFG-MSGOUT-UBX_NAV_EELL_UART1", 0x20910314, "U1", 1, "",
+         "Output rate of the UBX-NAV-EELL message on port UART1"),
         ("CFG-MSGOUT-UBX_NAV_SIG_I2C", 0x20910345, "U1", 1, "",
          "Output rate of the UBX-NAV-SIG message on port I2C"),
         ("CFG-MSGOUT-UBX_NAV_SIG_SPI", 0x20910349, "U1", 1, "",
@@ -1492,6 +1532,13 @@ class ubx(object):
          "Data bytes 17-24"),
         ("CFG-RINV-CHUNK3", 0x50c70007, "X8", 1, "",
          "Data bytes 25-30 (MSB)"),
+        # CFG-RTCM-
+        ("CFG-RTCM-DF003_IN", 0x30090008, "U2", 1, "",
+         "RTCM DF003 reference station ID (input)"),
+        ("CFG-RTCM-DF003_IN_FILTER", 0x20090009, "E1", 1, "",
+         "RTCM input filter configuration based on DF003 value"),
+        ("CFG-RTCM-DF003_OUT", 0x30090001, "U2", 1, "",
+         "RTCM DF003 reference station ID (output)"),
         # CFG-SBAS-
         ("CFG-SBAS", 0x1036ffff, "", 0, "",
          "get all CFG-SBAS"),
@@ -1505,6 +1552,17 @@ class ubx(object):
          "Use SBAS integrity information"),
         ("CFG-SBAS-PRNSCANMASK", 0x50360006, "X8", 1, "",
          "SBAS PRN search configuration"),
+        # CFG-SEC-
+        # M10S, protVer 34.00
+        ("CFG-SEC", 0x10f6ffff, "", 0, "",
+         "get all CFG-SEC"),
+        ("CFG-SEC-CFG_LOCK", 0x10f60009, "L", 1, "",
+         "Configuration lockdown"),
+        ("CFG-SEC-CFG_LOCK_UNLOCKGRP1", 0x10f6000a, "U2", 1, "",
+         "Configuration lockdown exempted group 1"),
+        ("CFG-SEC-CFG_LOCK_UNLOCKGRP2", 0x10f6000b, "U2", 1, "",
+         "Configuration lockdown exempted group 2"),
+
         # CFG-SIGNAL-
         ("CFG-SIGNAL", 0x1031ffff, "", 0, "",
          "get all CFG-SIGNAL"),
@@ -2008,8 +2066,12 @@ class ubx(object):
                    'name': 'UBX-ACK-ACK'}}
 
     # UBX-AID-
+    # All UBX-AID- removed in u-blox 10
     def aid_alm(self, buf):
-        """UBX-AID-ALM decode, GPS Aiding Almanac Data"""
+        """UBX-AID-ALM decode, GPS Aiding Almanac Data
+
+Removed in M10 (protVer 34.00 and up)
+"""
         m_len = len(buf)
 
         if 1 == m_len:
@@ -2029,7 +2091,10 @@ class ubx(object):
         return s
 
     def aid_alp(self, buf):
-        """UBX-AID-ALP decode, AlmanacPlus"""
+        """UBX-AID-ALP decode, AlmanacPlus
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         # u-blox 6, protVer 6 to 7
 
@@ -2053,7 +2118,10 @@ class ubx(object):
         return s
 
     def aid_alpsrv(self, buf):
-        """UBX-AID-ALPSRV decode, AlmanacPlus"""
+        """UBX-AID-ALPSRV decode, AlmanacPlus
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         # u-blox 6, protVer 6 to 7
 
@@ -2065,7 +2133,10 @@ class ubx(object):
         return s
 
     def aid_aop(self, buf):
-        """UBX-AID-AOP decode, AssistNow Autonomous data"""
+        """UBX-AID-AOP decode, AssistNow Autonomous data
+
+Removed in M10 (protVer 34.00 and up)
+"""
         m_len = len(buf)
 
         if 1 == m_len:
@@ -2082,7 +2153,10 @@ class ubx(object):
         return s
 
     def aid_data(self, buf):
-        """UBX-AID-DATA decode, Poll all GPS Initial Aiding Data"""
+        """UBX-AID-DATA decode, Poll all GPS Initial Aiding Data
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         # u-blox 6
         # If this poll is received, the messages AID-INI, AID-HUI,
@@ -2090,7 +2164,10 @@ class ubx(object):
         return "  Poll all GPS Initial Aiding Data"
 
     def aid_eph(self, buf):
-        """UBX-AID-EPH decode, GPS Aiding Ephemeris Data"""
+        """UBX-AID-EPH decode, GPS Aiding Ephemeris Data
+
+Removed in M10 (protVer 34.00 and up)
+"""
         m_len = len(buf)
 
         if 1 == m_len:
@@ -2114,7 +2191,10 @@ class ubx(object):
         return s
 
     def aid_hui(self, buf):
-        """UBX-AID-HUI decode, GPS Heatlh, UTC, Ionosphere"""
+        """UBX-AID-HUI decode, GPS Heatlh, UTC, Ionosphere
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         u = struct.unpack_from('<LddlhhhhhhffffffffL', buf, 0)
         s = (' health x%x utcA0 %e utcA1 %e utcTOW %d'
@@ -2126,7 +2206,10 @@ class ubx(object):
         return s
 
     def aid_ini(self, buf):
-        """UBX-AID-INI decode, Aiding position, time, frequency, clock drift"""
+        """UBX-AID-INI decode, Aiding position, time, frequency, clock drift
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         u = struct.unpack_from('<lllLHHLlLLlLL', buf, 0)
         s = (' ecefXOrLat %d ecefYOrLon %d ecefZOrAlt %d posAcc %u'
@@ -2137,11 +2220,15 @@ class ubx(object):
         return s
 
     def aid_req(self, buf):
-        """UBX-AID-REQ decode, Sends a poll for all GPS Aiding Data"""
+        """UBX-AID-REQ decode, Sends a poll for all GPS Aiding Data
+
+Removed in M10 (protVer 34.00 and up)
+"""
 
         return "  poll (AID-DATA) for all GPS Aiding Data"
 
-    # All UBX-AID messages are deprecated; use UBX-MGA messages instead
+    # All UBX-AID messages are deprecated, gone in M10 (protVer 34)
+    # use UBX-MGA messages instead
     aid_ids = {
                # u-blox 6
                0x00: {'str': 'REQ', 'dec': aid_req, 'minlen': 0,
@@ -2175,7 +2262,10 @@ class ubx(object):
         }
 
     def cfg_ant(self, buf):
-        """UBX-CFG-ANT decode"""
+        """UBX-CFG-ANT decode
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<HH', buf, 0)
         s = ' flags x%x pins x%x ' % u
@@ -2196,7 +2286,10 @@ class ubx(object):
         }
 
     def cfg_batch(self, buf):
-        """UBX-CFG-BATCH decode"""
+        """UBX-CFG-BATCH decode
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBHHBB', buf, 0)
         s = ("  version %u flags x%x bufsize %u notifThrs %u\n"
@@ -2222,18 +2315,25 @@ class ubx(object):
     cfg_cfg_dev = {
         0x1: 'devBBR',
         0x2: 'devFlash',
-        0x4: 'devEEPROM',
-        0x10: 'devSpiFlash',
+        0x4: 'devEEPROM',             # only protVer less then 14.00
+        0x10: 'devSpiFlash',          # only protVer less than 14.00
         }
 
     def cfg_cfg(self, buf):
-        """UBX-CFG-CFG decode"""
+        """UBX-CFG-CFG decode
+
+"not completely  backwards-compatible."
+
+Deprecated in protVer 34.00
+"""
         m_len = len(buf)
 
         if 12 == m_len:
             u = struct.unpack_from('<LLL', buf, 0)
-        else:
+        elif 13 == m_len:
             u = struct.unpack_from('<LLLB', buf, 0)
+        else:
+            return "  Bad Length %s" % m_len
 
         s = ('  clearMask: %#x (%s)\n' %
              (u[0], flag_s(u[0], self.cfg_cfg_mask)))
@@ -2249,7 +2349,10 @@ class ubx(object):
         return s
 
     def cfg_dat(self, buf):
-        """UBX-CFG-DAT decode, Standard Datum configuration"""
+        """UBX-CFG-DAT decode, Standard Datum configuration
+
+Deprecated in protVer 34.00
+"""
 
         # u-blox 5 to 9, protVer 4.00 to 29
         m_len = len(buf)
@@ -2316,6 +2419,87 @@ Programming the dynamic seed for host interface signature"""
         s = " version %u reserved1 %u %u seedHi %u seedLo %u" % u
         return s
 
+    def cfg_esfa(self, buf):
+        """UBX-CFG-ESFA decode, Accelerometer sensor configuration
+protVer 19 and up, UDR only"""
+
+        # at least protver 19
+        if 19 > self.protver:
+            self.protver = 19
+
+        u = struct.unpack_from('<BLLBBBHHL', buf, 0)
+        s = (' version %u reserved1 x%x %x %x accelRmsThdl %u frequency %u\n'
+             '  latency %u accuracy %u reserved2 x%x' % u)
+        return s
+
+    cfg_esfalg_bitfield = {
+        0x1: 'doAutoMntAlg',
+        }
+
+    def cfg_esfalg(self, buf):
+        """UBX-CFG-ESFALG decode, IMU-mount misalignment configuration
+
+protVer 15.01 and up, ADR and UDR only"""
+
+        # at least protver 15
+        if 15 > self.protver:
+            self.protver = 15
+
+        u = struct.unpack_from('<LLhh', buf, 0)
+        s = ' bitfield x%x aw %u pitch %d roll %d' % u
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n    bitfield (%s) version %u" %
+                  (flag_s((u[0] >> 8) & 1, self.cfg_esfalg_bitfield),
+                   u[0] & 0x0ff))
+        return s
+
+    def cfg_esfg(self, buf):
+        """UBX-CFG-ESFG decode, Gyro sensor configuration
+
+protVer 19 and up, UDR only"""
+
+        # u-blox 8, protver 19 and up
+        if 19 > self.protver:
+            self.protver = 19
+
+        u = struct.unpack_from('<BLHBHBBHHL', buf, 0)
+        s = (' version %u reserved1 x%x %x %x tcTableSaveRate %u\n'
+             '  gyroRmsThdl %u frequency %u latency %u accuracy %u\n'
+             '  reserved2 x%x' % u)
+        return s
+
+    cfg_esfwt_flags1 = {
+        0x1: 'combineTicks',
+        0x10: 'useWtSpeed',
+        0x20: 'dirPinPol',
+        0x40: 'useWtPin',
+        }
+
+    cfg_esfwt_flags2 = {
+        0x1: 'autoWtCountMaxOff',
+        0x2: 'autoDirPinPolOff',
+        0x4: 'autoSoftwareWtOff',
+        0x8: 'autoUseWtSpeedOff',
+        }
+
+    def cfg_esfwt(self, buf):
+        """UBX-CFG-ESFWT decode, Wheel tick configuration
+protVer 15.01 and up, ADR only"""
+
+        # at least protver 15
+        if 15 > self.protver:
+            self.protver = 15
+
+        u = struct.unpack_from('<BBBBLLLHBBHLLH', buf, 0)
+        s = (' version %u flags1 x%x flags2 x%x reserved1 x%x wtFactor %u\n'
+             '  wtQuantError %u wtCountMax %u wtLatency %u wtFrequency %u\n'
+             '  flags3 x%x speedDeadBand %ureserved2 x%x %x %x' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n    flags1 (%s) flags2 (%s)" %
+                  (flag_s(u[1], self.cfg_esfwt_flags1),
+                   flag_s(u[2], self.cfg_esfwt_flags2)))
+        return s
+
     def cfg_esrc(self, buf):
         """UBX-CFG-ESRC decode, External synchronization source
         configuration"""
@@ -2354,7 +2538,12 @@ Programming the fixed seed for host interface signature"""
         return s
 
     def cfg_geofence(self, buf):
-        """UBX-CFG-GEOFENCE decode, Geofencing configuration"""
+        """UBX-CFG-GEOFENCE decode, Geofencing configuration
+
+Deprecated in protVer 34.00
+"""
+
+        # not in M10, protVer 34 and up
 
         u = struct.unpack_from('<BBBBBBBB', buf, 0)
         s = (" version %u numFences %u confLvl %u reserved1 %u\n"
@@ -2369,22 +2558,30 @@ Programming the fixed seed for host interface signature"""
     # top byte used, but not defined
     cfg_gnss_sig = {
         0: {0x010000: "L1C/A",    # GPS
-            0x100000: "L2C"},
+            0x100000: "L2C",
+            0x200000: "L5"},
         1: {0x010000: "L1C/A"},   # SBAS
         2: {0x010000: "E1",       # Galileo
+            0x100000: "E5a",
             0x200000: "E5b"},
         3: {0x010000: "B1I",      # BeiDou
-            0x100000: "B2I"},
+            0x100000: "B2I",
+            0x800000: "B2A"},
         4: {0x010000: "L1"},      # IMES
         5: {0x010000: "L1C/A",    # QZSS
             0x040000: "L1S",
-            0x100000: "L2C"},
+            0x100000: "L2C",
+            0x200000: "L5"},
         6: {0x010000: "L1",       # GLONASS
             0x100000: "L2"},
         }
 
     def cfg_gnss(self, buf):
-        """UBX-CFG-GNSS decode, GNSS system configuration"""
+        """UBX-CFG-GNSS decode, GNSS system configuration
+
+Present in protVer 15 and up
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBBB', buf, 0)
         s = " msgVer %u  numTrkChHw %u numTrkChUse %u numConfigBlocks %u" % u
@@ -2428,7 +2625,10 @@ Programming the fixed seed for host interface signature"""
         }
 
     def cfg_inf(self, buf):
-        """UBX-CFG-INF decode, Poll configuration for one protocol"""
+        """UBX-CFG-INF decode, Poll configuration for one protocol
+
+Deprecated in protVer 34.00
+"""
 
         m_len = len(buf)
         if 1 == m_len:
@@ -2467,7 +2667,10 @@ Programming the fixed seed for host interface signature"""
         }
 
     def cfg_itfm(self, buf):
-        """UBX-CFG-ITFM decode, Jamming/Interference Monitor configuration"""
+        """UBX-CFG-ITFM decode, Jamming/Interference Monitor configuration
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<LL', buf, 0)
         s = " config x%x config2 x%x" % u
@@ -2503,12 +2706,12 @@ Programming the fixed seed for host interface signature"""
         return s
 
     utc_std = {
-        0: "Default",
+        0: "Auto",
         1: "CRL",
         2: "NIST",
         3: "USNO",
         4: "BIPM",
-        5: "tbd",
+        5: "EU",
         6: "SU",
         7: "NTSC",
         }
@@ -2544,7 +2747,10 @@ Programming the fixed seed for host interface signature"""
         }
 
     def cfg_nav5(self, buf):
-        """UBX-CFG-NAV5 nav Engine Settings"""
+        """UBX-CFG-NAV5 nav Engine Settings
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<HBBlLbBHHHHbbbbHHbBL', buf, 0)
         s = (' mask %#x dynModel %u fixmode %d fixedAlt %d FixedAltVar %u\n'
@@ -2581,7 +2787,10 @@ Programming the fixed seed for host interface signature"""
         }
 
     def cfg_navx5(self, buf):
-        """UBX-CFG-NAVX5 decode, Navigation Engine Expert Settings"""
+        """UBX-CFG-NAVX5 decode, Navigation Engine Expert Settings
+
+Deprecated in protVer 34.00
+"""
 
         # deprecated protver 23+
         # length == 20 case seems broken?
@@ -2605,12 +2814,15 @@ Programming the fixed seed for host interface signature"""
                   "\n   mask2 (%s) aopCfg (%s)" %
                   (flag_s(u[1], self.cfg_navx5_mask1),
                    flag_s(u[2], self.cfg_navx5_mask2),
-                   flag_s(u1[5], self.cfg_navx5_aop)))
+                   flag_s(u[5], self.cfg_navx5_aop)))
 
         return s
 
     def cfg_msg(self, buf):
-        """UBX-CFG-MSG decode"""
+        """UBX-CFG-MSG decode
+
+Deprecated in protVer 34.00
+"""
         m_len = len(buf)
         if 2 == m_len:
             u = struct.unpack_from('<BB', buf, 0)
@@ -2683,7 +2895,10 @@ Programming the fixed seed for host interface signature"""
         }
 
     def cfg_nmea(self, buf):
-        """UBX-CFG-NMEA decode, NMEA protocol configuration"""
+        """UBX-CFG-NMEA decode, NMEA protocol configuration
+
+Deprecated in protVer 34.00
+"""
 
         # old u-blox have 4 octets, e.g. u-blox 6 w/ protVer < 14
         # less old u-blox have 12 octets, e.g. u-blox 7 w/ protVer == 14
@@ -2759,7 +2974,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_odo(self, buf):
-        """UBX-CFG-ODO decode, Odometer, Low-speed COG Engine Settings"""
+        """UBX-CFG-ODO decode, Odometer, Low-speed COG Engine Settings
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBBBBBBBBBBBBBBBBBBB', buf, 0)
         s = (" version %u reserved1 %u %u %u flags x%x odoCfg x%x\n"
@@ -2818,7 +3036,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_pm2(self, buf):
-        """UBX-CFG-PM2 decode, Extended Power Mode Configuration"""
+        """UBX-CFG-PM2 decode, Extended Power Mode Configuration
+
+Deprecated in protVer 34.00
+"""
 
         # three versions, two lengths
         # "version" 1 is 44 bytes
@@ -2861,7 +3082,10 @@ Save and Load non-volatile storage data"""
                       }
 
     def cfg_pms(self, buf):
-        """UBX-CFG-PMS decode, Power Mode Setup"""
+        """UBX-CFG-PMS decode, Power Mode Setup
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBHHBB', buf, 0)
         s = (' version %u powerSetupValue %u'
@@ -2884,7 +3108,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_prt(self, buf):
-        """UBX-CFG-PRT decode, Port Configuration """
+        """UBX-CFG-PRT decode, Port Configuration
+
+Deprecated in protVer 34.00
+"""
 
         m_len = len(buf)
 
@@ -2916,7 +3143,7 @@ Save and Load non-volatile storage data"""
                   0: '  flags %#x reserved3 %u',
                   }.get(portid, '  ??? %u,%u') % tuple(u[7:]))
 
-        if portid == 0:
+        if 0 == portid:
             s.append('    slaveAddr %#x' % (u[3] >> 1 & 0x7F))
 
         s.append('    inProtoMask (%s)\n'
@@ -2936,7 +3163,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_pwr(self, buf):
-        """UBX-CFG-PWR decode, Put receiver in a defined power state"""
+        """UBX-CFG-PWR decode, Put receiver in a defined power state
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBBBL', buf, 0)
         s = (" version %u reserved %u %u %u state %u" %
@@ -2952,7 +3182,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_rate(self, buf):
-        """UBX-CFG-RATE decode, Navigation/Measurement Rate Settings"""
+        """UBX-CFG-RATE decode, Navigation/Measurement Rate Settings
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<HHH', buf, 0)
         s = (" measRate %u navRate %u timeRef %u (%s)" %
@@ -2965,7 +3198,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_rinv(self, buf):
-        """UBX-CFG-RINV decode, Contents of Remote Inventory"""
+        """UBX-CFG-RINV decode, Contents of Remote Inventory
+
+Deprecated in protVer 34.00
+"""
 
         # u-blox 5, protVer 6.00 to 6.02
         m_len = len(buf)
@@ -3010,7 +3246,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_rst(self, buf):
-        """"UBX-CFG-RST decode, Reset Receiver/Clear Backup Data Structures"""
+        """UBX-CFG-RST decode, Reset Receiver/Clear Backup Data Structures
+
+protVer 15 and up
+"""
 
         u = struct.unpack_from('<HBB', buf, 0)
         s = ' navBbrmask x%x resetMode %u reserved %u' % u
@@ -3035,7 +3274,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_rxm(self, buf):
-        """UBX-CFG-RXM decode, Navigation/Measurement"""
+        """UBX-CFG-RXM decode, Navigation/Measurement
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BB', buf, 0)
         s = (" reserved1 %u lpMode %u (%s)" %
@@ -3099,7 +3341,10 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_sbas(self, buf):
-        """UBX-CFG-SBAS decode, SBAS Configuration"""
+        """UBX-CFG-SBAS decode, SBAS Configuration
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<BBBBL', buf, 0)
         s = (" mode x%x usage x%x maxSBAS %u scanMode2 x%x"
@@ -3113,6 +3358,8 @@ Save and Load non-volatile storage data"""
                    flag_s(u[4], self.cfg_sbas_scanmode1)))
 
         return s
+
+    # UBX-CFG-SENIF, protVer 19 and up, ADR and UDR only
 
     cfg_slas_mode = {
         1: "enabled",
@@ -3279,7 +3526,11 @@ Save and Load non-volatile storage data"""
         }
 
     def cfg_tp5(self, buf):
-        """UBX-CFG-TP5 decode, Time Pulse Parameters"""
+        """UBX-CFG-TP5 decode, Time Pulse Parameters
+
+Deprecated in protVer 34.00
+"""
+
         m_len = len(buf)
 
         if 1 == m_len:
@@ -3311,7 +3562,10 @@ Save and Load non-volatile storage data"""
                          }
 
     def cfg_usb(self, buf):
-        """UBX-CFG-USB decode, USB Configuration"""
+        """UBX-CFG-USB decode, USB Configuration
+
+Only for models with built in USB.
+"""
 
         u = struct.unpack_from('<HHHHHH', buf, 0)
         s = ('  vendorID %#x productID %#x reserved1 %u reserved2 %u\n'
@@ -3554,15 +3808,24 @@ Save and Load non-volatile storage data"""
         # in u-blox 7+  Not in u-blox 6-
         0x47: {'str': 'LOGFILTER', 'dec': cfg_logfilter, 'minlen': 12,
                'name': 'UBX-CFG-LOGFILTER'},
+        # protVer 19 and up, UDR only
+        0x4c: {'str': 'ESFA', 'dec': cfg_esfa, 'minlen': 20,
+               'name': 'UBX-CFG-ESFA'},
+        # protVer 19 and up, UDR only
+        0x4d: {'str': 'ESFG', 'dec': cfg_esfg, 'minlen': 20,
+               'name': 'UBX-CFG-ESFG'},
         # Not in u-blox 7-, FTS only
         0x53: {'str': 'TXSLOT', 'minlen': 2, 'name': 'UBX-CFG-TXSLOT'},
+        # protVer 15.01 and up, ADR and UDR only
+        0x56: {'str': 'ESFALG', 'dec': cfg_esfalg,  'minlen': 12,
+               'name': 'UBX-CFG-ESFALG'},
         # Not in u-blox 7-
         0x57: {'str': 'PWR', 'dec': cfg_pwr, 'minlen': 8,
                'name': 'UBX-CFG-PWR'},
-        # Not in u-blox 8-
+        # Not before u-blox 8, protVer 15, ADR and UDR only
         0x5c: {'str': 'HNR', 'dec': cfg_hnr, 'minlen': 4,
                'name': 'UBX-CFG-HNR'},
-        # Not in u-blox 7-
+        # Not in u-blox 7-, protVer 16 and up,  TFS only
         0x60: {'str': 'ESRC', 'dec': cfg_esrc, 'minlen': 4,
                'name': 'UBX-CFG-ESRC'},
         # Not in u-blox 8-
@@ -3571,6 +3834,8 @@ Save and Load non-volatile storage data"""
         # Not in u-blox 8-
         0x62: {'str': 'SMGR', 'dec': cfg_smgr, 'minlen': 20,
                'name': 'UBX-CFG-SMGR'},
+        # protVer 15.01 and up, ADR and UDR only
+        0x64: {'str': 'SPT', 'minlen': 12, 'name': 'UBX-CFG-SPT'},
         # Not in u-blox 8-
         0x69: {'str': 'GEOFENCE', 'dec': cfg_geofence, 'minlen': 8,
                'name': 'UBX-CFG-GEOFENCE'},
@@ -3581,6 +3846,9 @@ Save and Load non-volatile storage data"""
         # undocumented, but present in ZED-F9T
         0x71: {'str': 'TMODE3', 'dec': cfg_tmode3, 'minlen': 40,
                'name': 'UBX-CFG-TMODE3'},
+        # protVer 15.01 and up, ADR only
+        0x82: {'str': 'ESFWT', 'dec': cfg_esfwt, 'minlen': 32,
+               'name': 'UBX-CFG-ESFWT'},
         # Not in u-blox 7-
         0x84: {'str': 'FIXSEED', 'dec': cfg_fixseed, 'minlen': 12,
                'name': 'UBX-CFG-FIXSEED'},
@@ -3591,6 +3859,8 @@ Save and Load non-volatile storage data"""
         # Broadcom calls this BRM-STP-PWR_MODE
         0x86: {'str': 'PMS', 'dec': cfg_pms, 'minlen': 8,
                'name': 'UBX-CFG-PMS'},
+        # protVer 19 and up, ADR and UDR only
+        0x88: {'str': 'SENIF', 'minlen': 6, 'name': 'UBX-CFG-SENIF'},
         # in u-blox 9
         0x8a: {'str': 'VALSET', 'dec': cfg_valset, 'minlen': 4,
                'name': 'UBX-CFG-VALSET'},
@@ -3610,18 +3880,309 @@ Save and Load non-volatile storage data"""
         # 0xb0:
         }
 
+    esf_raw_type = {
+        0: "none",
+        1: "reserved",
+        2: "reserved",
+        3: "reserved",
+        4: "reserved",
+        5: "gyro z",
+        6: "Front Left ticks",
+        7: "Front Right ticks",
+        8: "Rear Left ticks",
+        9: "Rear Right ticks",
+        10: "speed tick",
+        11: "speed",
+        12: "gyro temp",
+        13: "gyro y",
+        14: "gyro x",
+        # no 15 ?
+        16: "accel x",
+        17: "accel y",
+        18: "accel z",
+        # 98 ?
+        }
+
+    esf_alg_error = {
+        1: 'tiltAlgError',
+        2: 'yawAlgError',
+        4: 'angleError',
+    }
+
+    esf_alg_status = {
+        0: 'user-defined/fixed angles',
+        1: 'roll/pitch angles alignment is ongoing',
+        2: 'roll/pitch/yaw angles alignment is ongoing',
+        3: 'coarse alingment used',
+        4: 'fine alingment used',
+    }
+
+    def esf_alg(self, buf):
+        """UBX-ESF-ALG decode, IMU alignment information"""
+
+        # at least protver 19
+        if 19 > self.protver:
+            self.protver = 19
+
+        u = struct.unpack_from('<LBBBBLhh', buf, 0)
+        s = (' iTOW %u version %u flags x%x error x%x reserved1 x%x\n'
+             '   yaw %u pitch %d roll %d' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n   flags (%s) status (%s)"
+                  "\n   error (%s)" %
+                  ('autoMntAlgOn' if (u[2] & 1) else '',
+                   index_s((u[2] >> 1) & 7, self.esf_alg_status),
+                   flag_s(u[3], self.esf_alg_error)))
+        return s
+
+    esf_status_bitfield0 = {
+        0x10: 'xAngRateValid',
+        0x20: 'yAngRateValid',
+        0x40: 'zAngRateValid',
+        0x80: 'xAccelValid',
+        0x100: 'yAccelValid',
+        0x200: 'zAccelValid',
+    }
+
+    def esf_ins(self, buf):
+        """UBX-ESF-INS decode, Vehicle dynamics information"""
+
+        # at least protver 19
+        if 19 > self.protver:
+            self.protver = 19
+
+        u = struct.unpack_from('<LLLllllll', buf, 0)
+        s = (' bitfield0 x%x reserved1 x%x iTOW %u\n'
+             '   xAngRate %d yAngRate %d zAngRate %d\n'
+             '   xAccel %d yAccel %d zAccel %d' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n   bitfield0 (version %u %s)" %
+                  (u[0] & 0xff,
+                   flag_s(u[0] & 0x0ff00, self.esf_status_bitfield0)))
+        return s
+
+    esf_meas_flags = {
+        1: 'timeMarkSent-on-Ext0',
+        2: 'timeMarkSent-on-Ext1',
+        4: 'timeMarkEdge-falling',
+        8: 'calibTtagValid',
+        0x10: 'Unk',
+        0x20: 'Unk',
+        }
+
+    def esf_meas(self, buf):
+        """UBX-ESF-MEAS decode, External sensor fusion measurements"""
+
+        # at least protver 15
+        if 15 > self.protver:
+            self.protver = 15
+
+        m_len = len(buf)
+        blocks = int((m_len - 8) / 4)
+        if ((blocks * 4) + 8) != m_len:
+            s = ("ERROR: invalid m_len %d blocks %f" %
+                 (m_len, (m_len - 8) / 4))
+            return s
+
+        u = struct.unpack_from('<LHH', buf, 0)
+        s = ' timetag %u flags x%x id %u' % u
+        numMeas = (u[1] >> 11) & 0x1f
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n   flags (%s) numMeas %u" %
+                  (flag_s(u[1] & 0x7ff, self.esf_meas_flags), numMeas))
+        if (u[1] & 0x08) and (0 < blocks):
+            # calibTtagValid
+            blocks -= 1
+
+        if numMeas != blocks:
+            s += "\nERROR:  numMeas != blocks!!"
+            return s
+
+        n = 0
+        s1 = ''
+        while n < blocks:
+            u1 = struct.unpack_from('<L', buf, 8 + (4 * n))
+            data_type = (u1[0] >> 24) & 0x03f
+            data = u1[0] & 0x0ffffff
+            if data_type in [5, 11, 12, 13, 14, 16, 17, 18]:
+                # 24 signed data
+                data = uint2int(data, 24)
+            if gps.VERB_DECODE <= self.verbosity:
+                s1 = ' (%s)' % index_s(data_type, self.esf_raw_type)
+            s += ('\n     dataType %3u%s dataField %7d' %
+                  (data_type, s1, data))
+            n += 1
+        if u[1] & 0x08:
+            # calibTtagValid
+            u1 = struct.unpack_from('<L', buf, 8 + (4 * numMeas))
+            s += '\n   calibTtag %u' % u[0]
+        return s
+
+    def esf_raw(self, buf):
+        """UBX-ESF-RAW decode, raw sensor information"""
+
+        # at least protver 15
+        if 15 > self.protver:
+            self.protver = 15
+
+        m_len = len(buf)
+        blocks = int((m_len - 4) / 8)
+        if ((blocks * 8) + 4) != m_len:
+            s = ("ERROR: invalid m_len %d blocks %f" %
+                 (m_len, (m_len - 4) / 8))
+            return s
+
+        u = struct.unpack_from('<L', buf, 0)
+        s = ' reserved1 x%x blocks %u' % (u[0], blocks)
+        n = 0
+        s1 = ''
+        while n < blocks:
+            u = struct.unpack_from('<LL', buf, 4 + (8 * n))
+            data_type = (u[0] >> 24) & 0x0ff
+            data = u[0] & 0x0ffffff
+            if data_type in [5, 11, 12, 13, 14, 16, 17, 18]:
+                # 24 bit signed data
+                data = uint2int(data, 24)
+            if gps.VERB_DECODE <= self.verbosity:
+                s1 = " (%s)" % index_s(data_type, self.esf_raw_type)
+            s += ('\n   data_type %3u%s data %8d sTtag %u' %
+                  (data_type, s1, data, u[1]))
+            n += 1
+        return s
+
+    esf_status_fusionMode = {
+        0: 'Initialization mode',
+        1: 'Fusion mode',
+        2: 'Susended fusion mode',
+        3: 'Disabled fusion mode',
+        }
+
+    def esf_status(self, buf):
+        """UBX-ESF-STATUS decode, raw sensor status"""
+
+        # at least protver 15
+        if 15 > self.protver:
+            self.protver = 15
+
+        m_len = len(buf)
+        blocks = int((m_len - 16) / 4)
+        if ((blocks * 4) + 16) != m_len:
+            s = ("ERROR: invalid m_len %d blocks %f" %
+                 (m_len, (m_len - 16) / 4))
+            return s
+
+        u = struct.unpack_from('<LBBBBBBBBBHB', buf, 0)
+        s = (' iTOW %u version %u reserved1 %x %x %x %x %x %x %x \n'
+             '   fusionMode %u reserved2 %x numSens %u ' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n     fusionMode (%s)" %
+                  index_s(u[10], self.esf_status_fusionMode))
+        n = 0
+        while n < blocks:
+            u = struct.unpack_from('<BBBB', buf, 16 + (4 * n))
+            s += '\n   sensStatus1 %x sensStatus2 %x freq %u faults %u' % u
+            if gps.VERB_DECODE <= self.verbosity:
+                s += ("\n      type (%s) used %s ready %s" %
+                      (index_s(u[0] & 0x3f, self.esf_raw_type),
+                       'Yes' if (u[0] & 0x40) else 'No',
+                       'Yes' if (u[0] & 0x80) else 'No'))
+            n += 1
+        return s
+
     # UBX-ESF-
     # only with ADR or UDR products
-    esf_ids = {0x02: {'str': 'MEAS', 'minlen': 8, 'name': "UBX-ESF-MEAS"},
-               0x03: {'str': 'RAW', 'minlen': 4, 'name': "UBX-ESF-RAW"},
-               0x10: {'str': 'STATUS', 'minlen': 16, 'name': "UBX-ESF-STATUS"},
-               0x15: {'str': 'INS', 'minlen': 16, 'name': "UBX-ESF-INS"},
+    esf_ids = {0x02: {'str': 'MEAS', 'dec': esf_meas, 'minlen': 8,
+                      'name': "UBX-ESF-MEAS"},
+               0x03: {'str': 'RAW', 'dec': esf_raw, 'minlen': 4,
+                      'name': "UBX-ESF-RAW"},
+               0x10: {'str': 'STATUS', 'dec': esf_status, 'minlen': 16,
+                      'name': "UBX-ESF-STATUS"},
+               0x14: {'str': 'ALG', 'dec': esf_alg, 'minlen': 16,
+                      'name': "UBX-ESF-ALG"},
+               0x15: {'str': 'INS', 'dec': esf_ins, 'minlen': 16,
+                      'name': "UBX-ESF-INS"},
                }
 
     # UBX-HNR-
-    # only with ADR or UDR products
-    hnr_ids = {0x00: {'str': 'PVT', 'minlen': 72, 'name': "UBX-HNR-PVT"},
-               0x02: {'str': 'INS', 'minlen': 36, 'name': "UBX-HNR-INS"},
+    # only with ADR or UDR products, protVer 19 and up
+
+    def hnr_att(self, buf):
+        """UBX-HNR-ATT decode, HNR Attitude solution"""
+
+        # Not before protVet 19.2
+        # 32 bytes long in protver 19.2
+
+        u = struct.unpack_from('<LBBBBlllLLL', buf, 0)
+        s = ('  iTOW %u version %u reserved1 x%x %x %x\n'
+             '  roll %d pitch %d heading %d\n'
+             '  accRoll %u accPitch %u accHeading %u' % u)
+        return s
+
+    hnr_ins_bitfield0 = {
+        0x100: 'xAngRateValid',
+        0x200: 'yAngRateValid',
+        0x400: 'zAngRateValid',
+        0x800: 'xAccelValid',
+        0x1000: 'yAccelValid',
+        0x2000: 'zAccelValid',
+        }
+
+    def hnr_ins(self, buf):
+        """UBX-HNR-INS decode, HNR Vehicle dynamics information"""
+
+        # Not before protVet 19.1
+        # 36 bytes long in protver 19.1
+
+        u = struct.unpack_from('<LLLlllLLL', buf, 0)
+        s = ('  bitfield0 x%x reserved1 x%x iTOW %u\n'
+             '  xAngRate %d yAngRate %d zAngRate %d\n'
+             '  xAccel %d zAccel %d zAccel %d' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n    version %u"
+                  "\n    bitfield0 (%s)" %
+                  (u[0] & 0x0ff,
+                   flag_s(u[0] & 0xffffff00, self.hnr_ins_bitfield0)))
+        return s
+
+    # diff from nav_pvt_flags
+    hnr_pvt_flags = {
+        1: "GpsFixOK",
+        2: "diffSoln",
+        4: "WKNSET",
+        8: "TOWSET",
+        0x10: "headVehValid",
+        }
+
+    def hnr_pvt(self, buf):
+        """UBX-HNR-PVT decode, High rate output of PVT solution"""
+        m_len = len(buf)
+
+        # Not before protVet 19
+        # 72 bytes long in protver 19.
+
+        u = struct.unpack_from('<LHBBBBBBLBBHllllllllLLLLL', buf, 0)
+        s = ('  iTOW %u time %u/%u/%u %02u:%02u:%02u valid x%x\n'
+             '  nano %d gpsFix %u flags x%x reserved1 x%x\n'
+             '  lon %d lat %d height %d hMSL %d\n'
+             '  gSpeed %d speed %d headMot %d headVeh %d\n'
+             '  hAcc %u vAcc %u sAcc %u headAcc %u reserved2 x%x' % u)
+
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n    valid (%s)"
+                  "\n    gpsFix (%s)"
+                  "\n    flags (%s)" %
+                  (flag_s(u[7], self.nav_pvt_valid),
+                   index_s(u[9], self.nav_pvt_fixType),
+                   flag_s(u[10], self.hnr_pvt_flags)))
+        return s
+
+    # ADR, UDR only, protVer 19 and up
+    hnr_ids = {0x00: {'str': 'PVT', 'dec': hnr_pvt, 'minlen': 72,
+                      'name': "UBX-HNR-PVT"},
+               0x01: {'str': 'ATT', 'dec': hnr_att, 'minlen': 32,
+                      'name': "UBX-HNR-ATT"},
+               0x02: {'str': 'INS', 'dec': hnr_ins, 'minlen': 36,
+                      'name': "UBX-HNR-INS"},
                }
 
     def inf_debug(self, buf):
@@ -3937,6 +4498,51 @@ Oddly this is the poll for UBX-LOG-BATCH
                }
 
     # UBX-MGA-
+    mga_ack_type = {0: 'NACK',
+                    1: 'ACK',
+                    }
+
+    mga_ack_infoCode = {0: 'OK',
+                        1: 'Missing time',
+                        2: 'Unsupported version',
+                        3: 'Wrong size',
+                        4: 'Storage failure',
+                        5: 'Not ready',
+                        5: 'Unknown Message',
+                        }
+
+    def mga_ack(self, buf):
+        """UBX-MGA-ACK decode, Multiple GNSS acknowledge
+
+u-blox 8, protVer 15 and up
+"""
+
+        u = struct.unpack_from('<BBBBL', buf, 0)
+        s = (' type %u version %u infoCode %u msgId %u'
+             ' msgPayloadStart x%s' % u)
+        # plus some anonymous data...
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ('\n    type (%s)' %
+                  (index_s(u[0], self.mga_ack_type),
+                   index_s(u[2], self.mga_ack_infoCode)))
+
+        return s
+
+    def mga_ano(self, buf):
+        """UBX-MGA-ANO- decode, Multiple GNSS AssistNow Offline assistance
+
+u-blox 8, protVer 15 and up
+"""
+
+        u = struct.unpack_from('<BBBBBBBB', buf, 0)
+        s = (' type %u version %u svId %u gnssId %u'
+             ' year %u month %u day %u reserved1 x%s' % u)
+        # plus some anonymous data...
+        if gps.VERB_DECODE <= self.verbosity:
+            s += '\n    gnssId (%s)' % (index_s(u[3], self.gnss_id))
+
+        return s
+
     def mga_dbd(self, buf):
         """UBX-MGA-DBD- decode, Navigation Database Dump Entry"""
         # max 172
@@ -3954,13 +4560,15 @@ Oddly this is the poll for UBX-LOG-BATCH
                0x05: {'str': 'QZSS', 'minlen': 12, 'name': "UBX-MGA-QZSS"},
                0x06: {'str': 'GLO', 'minlen': 20, 'name': "UBX-MGA-GLO"},
                # Braodcam calls this BRM-AST-LTO
-               0x20: {'str': 'ANO', 'minlen': 76, 'name': "UBX-MGA-ANO"},
+               0x20: {'str': 'ANO', 'dec': mga_ano, 'minlen': 76,
+                      'name': "UBX-MGA-ANO"},
                0x21: {'str': 'FLASH', 'minlen': 2, 'name': "UBX-MGA-FLASH"},
                # Braodcam calls this BRM-AST-REF_LOCATION
                # Braodcam calls this BRM-AST-REF_TIME_UTC
                0x40: {'str': 'INI', 'minlen': 12, 'name': "UBX-MGA-INI"},
                # Braodcam calls this BRM-AST-ACK
-               0x60: {'str': 'ACK', 'minlen': 8, 'name': "UBX-MGA-ACK"},
+               0x60: {'str': 'ACK', 'dec': mga_ack,  'minlen': 8,
+                      'name': "UBX-MGA-ACK"},
                # Braodcam calls this BRM-AST-NVMEM
                0x80: {'str': 'DBD', 'dec': mga_dbd, 'minlen': 12,
                       'name': "UBX-MGA-DBD"},
@@ -3982,6 +4590,7 @@ Oddly this is the poll for UBX-LOG-BATCH
         1: "NMEA",
         2: "RTCM2",
         5: "RTCM3",
+        6: "SPARTN",
         255: "None",
         }
 
@@ -4068,7 +4677,12 @@ Oddly this is the poll for UBX-LOG-BATCH
         }
 
     def mon_hw(self, buf):
-        """UBX-MON-HW decode, Hardware Status"""
+        """UBX-MON-HW decode, Hardware Status
+
+extended in protVer 34
+
+Deprecated in protVer 34.00
+"""
 
         u = struct.unpack_from('<LLLLHHBBBBLBBBBBBBBBBBBBBBBBBBBLLL', buf, 0)
         s = ('  pinSel %#x pinBank %#x pinDir %#x pinVal %#x noisePerMS %u\n'
@@ -4347,6 +4961,47 @@ Oddly this is the poll for UBX-LOG-BATCH
                    index_s(u[5], self.mon_smgr_discSrc)))
         return s
 
+    def mon_span(self, buf):
+        """UBX-MON-SPAN decode, Signal characteristics
+
+protVer 34.00 and up
+Present in M10S
+"""
+
+        u = struct.unpack_from('<BBH', buf, 0)
+        s = "  version %u numRfBlocks %u reserved0 %u" % u
+        for i in range(0, u[1]):
+            u = struct.unpack_from('<LLLBHB', buf, 260 + i * 272)
+            s += "\n   span %u res %u center %u pga %u res x%x %x" % u
+            center = u[2]
+            span = u[0]
+
+            if gps.VERB_DECODE <= self.verbosity:
+                indent = "\n       "
+            else:
+                indent = "\n     "
+
+            if gps.VERB_INFO <= self.verbosity:
+                # -v 3, one f, data, per line
+                for j in range(0, 256):
+                    f = center + span * ((j - 128) / 256)
+                    s += "\n     %u, %u" % (f, buf[(4 + j) + (i * 272)])
+            else:
+                for j in range(0, 256, 16):
+                    # grab 256 bytes, ib lines of 16
+                    u = struct.unpack_from('<BBBBBBBBBBBBBBBB', buf,
+                                           (4 + j) + (i * 272))
+                    if gps.VERB_DECODE <= self.verbosity:
+                        f = center + span * ((j - 128) / 256)
+                        s += "\n     f(%u) %u" % (j, f)
+                    s += indent
+                    s += ("%3u %3u %3u %3u %3u %3u %3u %3u "
+                          "%3u %3u %3u %3u %3u %3u %3u %3u" % u)
+
+        return s
+
+    # UBX-CFG-SPT, protVer 15.01 and up, ADR and UDR only
+
     def mon_txbuf(self, buf):
         """UBX-MON-TXBUF decode, Transmitter Buffer Status"""
 
@@ -4379,6 +5034,7 @@ Oddly this is the poll for UBX-LOG-BATCH
 
     def mon_ver(self, buf):
         """UBX-MON-VER decode, Poll Receiver/Software Version"""
+
         # min len = 40 in u-blox 5/6
         # min len = 70 in u-blox 9
         m_len = len(buf)
@@ -4435,6 +5091,10 @@ Oddly this is the poll for UBX-LOG-BATCH
                       'name': 'UBX-MON-GNSS'},
                0x2e: {'str': 'SMGR', 'dec': mon_smgr, 'minlen': 16,
                       'name': 'UBX-MON-SMGR'},
+               # protVer 19 and up, ADR and UDR only
+               0x2f: {'str': 'SPT', 'minlen': 4, 'name': 'UBX-MON-SPT'},
+               0x31: {'str': 'SPAN', 'dec': mon_span, 'minlen': 4,
+                      'name': 'UBX-MON-SPAN'},
                0x32: {'str': 'BATCH', 'dec': mon_batch, 'minlen': 12,
                       'name': 'UBX-MON-BATCH'},
                0x36: {'str': 'COMMS', 'dec': mon_comms, 'minlen': 8,
@@ -4477,6 +5137,20 @@ Oddly this is the poll for UBX-LOG-BATCH
         1: "PR+PRR correction",
         }
 
+    def nav_cov(self, buf):
+        """UBX-NAV-COV decode, Covariance matrices
+
+protVer 34 and up
+"""
+
+        u = struct.unpack_from('<LBBBLLBffffffffffff', buf, 0)
+        return('  iTOW %u version %u posCovValid %u velCovValid %u '
+               'reserved0 %u %u %u\n'
+               ' posCovNN %f posCovNE  %f posCovND %f\n'
+               ' posCovEE %f posCovED  %f posCovDD %f\n'
+               ' velCovNN %f velCovNE  %f velCovND %f\n'
+               ' velCovEE %f velCovED  %f velCovDD %f\n' % u)
+
     def nav_dgps(self, buf):
         """UBX-NAV-DGPS decode, DGPS Data used for NAV"""
 
@@ -4504,6 +5178,17 @@ Oddly this is the poll for UBX-LOG-BATCH
         s = ('  iTOW %u gDOP %u pDOP %u tDOP %u vDOP %u\n'
              '  hDOP %u nDOP %u eDOP %u' % u)
         return s
+
+    def nav_eell(self, buf):
+        """UBX-NAV-EOE decode, Position error ellipse parameters
+
+UBX-NAV-EELL, protVer 19.1 and up, ADR and HPS only
+"""
+
+        u = struct.unpack_from('<LBBHLL', buf, 0)
+        return (' iTOW %u version %u reserved0 %u\n'
+                '  errEllipseOrient %u errEllipseMajor %u errEllipseMinor %u' %
+                u)
 
     def nav_eoe(self, buf):
         """UBX-NAV-EOE decode, End Of Epoch"""
@@ -4683,7 +5368,7 @@ Oddly this is the poll for UBX-LOG-BATCH
         5: "Inactive",
         }
 
-    # protver 27+
+    # in UBX-NAV-STATUS since Antaris 4
     carrSoln = {
         0: "None",
         1: "Floating",
@@ -4762,7 +5447,7 @@ High Precision GNSS products only."""
             flags = u1[13]
         elif (0 == u[0] and 40 <= m_len):
             # valid version 0 packet, u-blox 8, and some u-blox 9
-            u1 = struct.unpack_from('<bbbbLLLLLLL', buf, 20)
+            u1 = struct.unpack_from('<bbbbLLLL', buf, 20)
             s += ('  relPosHPN %d relPosHPE %d relPosHPD %d reserved2 %u\n'
                   '  accN %u accE %u accD %u flags x%x' % u1)
             flags = u1[7]
@@ -4832,16 +5517,22 @@ High Precision GNSS products only."""
         0x10000: "sbasCorrUsed",
         0x20000: "rtcmCorrUsed",
         0x40000: "slasCorrUsed",
+        0x80000: "spartnCorrUsed",
         0x100000: "prCorrUsed",
         0x200000: "crCorrUsed",
         0x400000: "doCorrUsed",
         }
 
     def nav_sat(self, buf):
-        """UBX-NAV-SAT decode"""
+        """UBX-NAV-SAT decode
 
-        u = struct.unpack_from('<LBBBB', buf, 0)
-        s = '  iTOW %u version %u numSvs %u reserved1 %u %u' % u
+Not in u-blox 5
+Present in u-blox 8,  protocol version 15+
+Present in protVer 32
+"""
+
+        u = struct.unpack_from('<LBBH', buf, 0)
+        s = '  iTOW %u version %u numSvs %u reserved1 x%x' % u
 
         for i in range(0, u[2]):
             u = struct.unpack_from('<BBBbhhL', buf, 8 + (i * 12))
@@ -4919,6 +5610,7 @@ High Precision GNSS products only."""
         4: "RTCM3 OSR",
         5: "RTCM3 SSR",
         6: "QZSS SLAS",
+        7: "SPARTN",
         }
 
     nav_sig_ionoModel = {
@@ -4940,7 +5632,10 @@ High Precision GNSS products only."""
         }
 
     def nav_sig(self, buf):
-        """UBX-NAV-SIG decode, Signal Information"""
+        """decode UBX-NAV-SIG decode, Signal Information
+
+Present in 9 and 10, protVer 32 and up
+"""
 
         u = struct.unpack_from('<LBBH', buf, 0)
         s = '  iTOW %u version %u numSigs %u reserved1 %u' % u
@@ -4996,9 +5691,12 @@ High Precision GNSS products only."""
         }
 
     def nav_sol(self, buf):
-        """UBX-NAV-SOL decode, Navigation Solution Information"""
+        """UBX-NAV-SOL decode, Navigation Solution Information
 
-        #  deprecated by u-blox
+deprecated by u-blox
+removed from u-blox 10 (protVer 34 and up)
+Use UBX-NAV-PVT instead
+"""
 
         u = struct.unpack_from('<LlhBBlllLlllLHBBL', buf, 0)
         s = ('  iTOW %u fTOW %d week %d gpsFix %u flags x%x\n'
@@ -5013,12 +5711,51 @@ High Precision GNSS products only."""
 
         return s
 
+    nav_status_fixStat = {
+        1: "diffCorr",
+        2: "carrSolnValid",
+        }
+
+    nav_status_mapMatching = {
+        0: "None",
+        0x40: "Too old",
+        0x80: "Valid10",
+        0xC0: "Valid11",
+        }
+
+    nav_status_psmState = {
+        0: "Acquisition",
+        1: "Tracking",
+        2: "Power Optimized Tracking",
+        3: "Inactive",
+        }
+
+    nav_status_spoofDetState = {
+        0: "Deactivated",
+        1: "None indicated",
+        2: "Indicated",
+        3: "Multiple Indicated",
+        }
+
     def nav_status(self, buf):
         """UBX-NAV-STATUS decode"""
 
         u = struct.unpack_from('<LBBBBLL', buf, 0)
-        return ('  iTOW:%d ms, fix:%d flags:%#x fixstat:%#x flags2:%#x\n'
-                '  ttff:%d, msss:%d' % u)
+        s = ('  iTOW %d gpsFix %d flags %#x fixStat %#x flags2 %#x\n'
+             '  ttff %d, msss %d' % u)
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n   gpsfix (%s)"
+                  "\n   flags (%s)"
+                  "\n   fixStat (%s) mapMatching (%s)"
+                  "\n   flags2 (psmState %s spoofDetState %s carrSoln %s)" %
+                  (index_s(u[1], self.nav_pvt_fixType),
+                   flag_s(u[2], self.nav_sol_flags),
+                   flag_s(0x3f & u[3], self.nav_status_fixStat),
+                   index_s(0xc0 & u[3], self.nav_status_mapMatching),
+                   index_s(3 & u[4], self.nav_status_psmState),
+                   index_s(3 & (u[4] >> 3), self.nav_status_spoofDetState),
+                   index_s(3 & (u[4] >> 6), self.carrSoln)))
+        return s
 
     def nav_svin(self, buf):
         """UBX-NAV-SVIN decode, Survey-in data"""
@@ -5061,9 +5798,12 @@ High Precision GNSS products only."""
         }
 
     def nav_svinfo(self, buf):
-        """UBX-NAV-SVINFO decode"""
+        """UBX-NAV-SVINFO decode
 
-        # in M8 Timing and FTS only
+removed from u-blox 10 (protVer 34 and up)
+Use UBX-NAV-SAT or UBX-NAV-SIG instead
+Present in M8 Timing and FTS only
+"""
         m_len = len(buf)
 
         u = struct.unpack_from('<LbbH', buf, 0)
@@ -5181,6 +5921,27 @@ High Precision GNSS products only."""
                    flag_s(u[15], self.nav_timels_valid)))
         return s
 
+    nav_timeqzss_valid = {
+        1: "qzssTowValid",
+        2: "qzssWnoValid",
+        4: "leapSValid",
+        }
+
+    def nav_timeqzss(self, buf):
+        """UBX-NAV-TIMEQZSS decode, QZSS time solution
+
+protVer 34 and up
+"""
+
+        u = struct.unpack_from('<LLlhbBL', buf, 0)
+        s = ("  iTOW %u qzssTow %u fQzssTow %d qzssWno %d leapS %d\n"
+             "  valid x%x tAcc %d" % u)
+
+        if gps.VERB_DECODE <= self.verbosity:
+            s += ("\n   valid (%s)" %
+                  (flag_s(u[5], self.nav_timeqzss_valid)))
+        return s
+
     nav_timeutc_valid = {
         1: "validTOW",
         2: "validWKN",
@@ -5191,7 +5952,7 @@ High Precision GNSS products only."""
         """UBX-NAV-TIMEUTC decode"""
 
         u = struct.unpack_from('<LLlHbbbbbB', buf, 0)
-        s = ("  iTOW %d tAcc %d nano %d Time  %d/%d/%d %d:%d:%d\n"
+        s = ("  iTOW %u tAcc %u nano %d Time  %4u/%02u/%02u %02u:%02u:%02u\n"
              "  valid x%x" % u)
 
         if gps.VERB_DECODE <= self.verbosity:
@@ -5260,6 +6021,8 @@ High Precision GNSS products only."""
                       'name': 'UBX-NAV-TIMEGAL'},
                0x26: {'str': 'TIMELS', 'dec': nav_timels, 'minlen': 24,
                       'name': 'UBX-NAV-TIMELS'},
+               0x27: {'str': 'TIMEQZSS', 'dec': nav_timeqzss, 'minlen': 20,
+                      'name': 'UBX-NAV-QZSS'},
                0x30: {'str': 'SVINFO', 'dec': nav_svinfo, 'minlen': 8,
                       'name': 'UBX-NAV-SVINFO'},
                0x31: {'str': 'DGPS', 'dec': nav_dgps, 'minlen': 16,
@@ -5271,6 +6034,8 @@ High Precision GNSS products only."""
                # Broadcom calls this BRM-PVT-SAT
                0x35: {'str': 'SAT', 'dec': nav_sat, 'minlen': 8,
                       'name': 'UBX-NAV-SAT'},
+               0x36: {'str': 'COV', 'dec': nav_cov, 'minlen': 64,
+                      'name': 'UBX-NAV-COV'},
                0x39: {'str': 'GEOFENCE', 'dec': nav_geofence, 'minlen': 8,
                       'name': 'UBX-NAV-GEOFENCE'},
                0x3B: {'str': 'SVIN', 'dec': nav_svin, 'minlen': 40,
@@ -5278,6 +6043,9 @@ High Precision GNSS products only."""
                # M8P length = 40, M9P length = 64
                0x3C: {'str': 'RELPOSNED', 'dec': nav_relposned, 'minlen': 40,
                       'name': 'UBX-NAV-RELPOSNED'},
+               # protVer 19.1 and up, ADR only
+               0x3d: {'str': 'EELL', 'dec': nav_eell, 'minlen': 16,
+                      'name': 'UBX-NAV-EELL'},
                # deprecated in u-blox 6, SFDR only
                0x40: {'str': 'EKFSTATUS', 'minlen': 36,
                       'name': 'UBX-NAV-EKFSTATUS'},
@@ -5331,6 +6099,7 @@ High Precision GNSS products only."""
     def rxm_imes(self, buf):
         """UBX-RXM-IMES decode, Indoor Messaging System Information"""
 
+        # not supported in M1
         u = struct.unpack_from('<BBH', buf, 0)
         s = ' numTx %u version %u reserved1 %u' % u
 
@@ -5363,6 +6132,44 @@ High Precision GNSS products only."""
             m_len -= 24
             i += 1
 
+        return s
+
+    rxm_pmreq_flags = {
+        1: "backup",
+        2: "force",
+        }
+
+    rxm_pmreq_wakeup = {
+        4: "uartrx",
+        0x10: "extint0",
+        0x20: "extint1",
+        0x40: "spics",
+        }
+
+    def rxm_pmreq(self, buf):
+        """UBX-RXM-PMREQ decode Power management request
+
+protVer 34 and up
+"""
+
+        m_len = len(buf)
+        if 4 == m_len:
+            # short poll
+            u = struct.unpack_from('<Ll', buf, 0)
+            s = ' duration %u flags %u' % u
+            if gps.VERB_DECODE < self.verbosity:
+                s += '\n flags (%s)' % flag_s(u[1], self.rxm_pmreq_flags)
+        elif 16 == m_len:
+            # long  poll
+            u = struct.unpack_from('<BBHLLL', buf, 0)
+            s = (' version %u reserved %u %u duration %u flags x%x\n'
+                 ' wakeupSources x%x' % u)
+            if gps.VERB_DECODE < self.verbosity:
+                s += ('\n flags (%s) wakeupSources (s)' %
+                      (flag_s(u[4], self.rxm_pmreq_flags),
+                       flag_s(u[5], self.rxm_pmreq_wakeup)))
+        else:
+            s = "  Bad Length %s" % m_len
         return s
 
     def rxm_raw(self, buf):
@@ -5496,6 +6303,654 @@ High Precision GNSS products only."""
                unpack_s11(words[9], 11) * (2 ** -38)))
         return s
 
+    def _decode_sfrbx_bds(self, words):
+        """Decode UBX-RXM-SFRBX BeiDou frames"""
+        # See u-blox8-M8_ReceiverDescrProtSpec_UBX-13003221.pdf
+        # Section 10.4 BeiDou
+        # gotta decode the u-blox munging and the BeiDou packing...
+        # http://en.beidou.gov.cn/SYSTEMS/ICD/
+        # BeiDou Interface Control Document v1.0
+        Rev = (words[0] >> 15) & 0x0f
+        FraID = (words[0] >> 12) & 7
+
+        # unmung u-blox 30 bit words in 32 bits
+        page = 0
+        for i in range(0, 10):
+            page <<= 30
+            page |= words[i] & 0x03fffffff
+
+        # sanity check
+        if (((page >> 282) & 7) != FraID):
+            s = ("\n    BDS: Math Error! %u != %u"
+                 "\n      page %u" %
+                 (FraID, (page >> 282) & 7, page))
+            return s
+
+        # common to all pages
+        SOW = ((page >> 274) & 0x0f) << 12
+        SOW |= (page >> 258) & 0x0fff
+        s = ("\n    BDS: Rev %u FraID %i SOW %u" %
+             (Rev, FraID, SOW))
+        if 1 == FraID:
+            SatH1 = (page >> 257) & 1
+            AODC = (page >> 252) & 0x01f
+            URAI = (page >> 248) & 0x0f
+            WN = (page >> 227) & 0x01fff
+            t0c = ((page >> 218) & 0x01ff) << 8
+            t0c |= (page >> 202) & 0x0ff
+            TGD1 = (page >> 192) & 0x3ff
+            TGD2 = ((page >> 188) & 0x0f) << 6
+            TGD2 |= (page >> 174) & 0x03f
+            alpha0 = (page >> 166) & 0x0ff
+            alpha1 = (page >> 158) & 0x0ff
+            alpha2 = (page >> 142) & 0x0ff
+            alpha3 = (page >> 134) & 0x0ff
+            beta0 = ((page >> 128) & 0x03f) << 2
+            beta0 |= (page >> 118) & 3
+            beta1 = (page >> 110) & 0x0ff
+            beta2 = (page >> 102) & 0x0ff
+            beta3 = ((page >> 98) & 0x0f) << 4
+            beta3 |= (page >> 86) & 0x0f
+            a2 = (page >> 75) & 0x07ff
+            a0 = ((page >> 68) & 0x07f) << 17
+            a0 |= (page >> 43) & 0x01ffff
+            a1 = ((page >> 38) & 0x01f) << 17
+            a1 |= (page >> 13) & 0x01ffff
+            AODE = (page >> 8) & 0x01f
+            s += ("\n    SatH1 %u AODC %u URAI %u WN %u t0c %u TGD1 %u "
+                  "TGD2 %u"
+                  "\n      alpha0 %u alpha1 %u alpha2 %u alpha3 %u"
+                  "\n      beta0 %u beta1 %u beta2 %u beta3 %u"
+                  "\n      a2 %u a0 %u a1 %u AODE %u" %
+                  (SatH1, AODC, URAI, WN, t0c, TGD1, TGD2, alpha0, alpha1,
+                   alpha2, alpha3, beta0, beta1, beta2, beta3,
+                   a2, a0, a1, AODE))
+        elif 2 == FraID:
+            deltan = ((page >> 248) & 0x03ff) << 6
+            deltan |= (page >> 234) & 0x03f
+            Cuc = ((page >> 218) & 0x0ffff) << 2
+            Cuc |= (page >> 210) & 3
+            M0 = ((page >> 188) & 0x0fffff) << 12
+            M0 |= (page >> 168) & 0x0fff
+            e = ((page >> 158) & 0x03ff) << 22
+            e |= (page >> 128) & 0x03fffff
+            Cus = (page >> 102) & 0x03ffff
+            Crc = ((page >> 98) & 0x0f) << 14
+            Crc |= (page >> 76) & 0x03fff
+            Crs = ((page >> 68) & 0x0f) << 10
+            Crs |= (page >> 50) & 0x03ff
+            sqrtA = ((page >> 38) & 0x0fff) << 20
+            sqrtA |= (page >> 10) & 0x0fffff
+            toeMSB = (page >> 8) & 3
+            s += ("\n    deltan %u Cuc %u M0 %u e %u Cus %u Crc %u"
+                  "\n    Crs %u sqrtA %u toeMSB %u" %
+                  (deltan, Cuc, M0, e, Cus, Crc, Crs, sqrtA, toeMSB))
+        elif 3 == FraID:
+            toeLSB = ((page >> 248) & 0x03ff) << 5
+            toeLSB |= (page >> 235) & 0x01f
+            i0 = ((page >> 218) & 0x01ffff) << 15
+            i0 |= (page >> 195) & 0x07fff
+            Cic = ((page >> 188) & 0x07f) << 11
+            Cic |= (page >> 137) & 0x07fff
+            Omegadot = ((page >> 158) & 0x07ff) << 13
+            Omegadot |= (page >> 137) & 0x01fff
+            Cis = ((page >> 128) & 0x01ff) << 9
+            Cis |= (page >> 111) & 0x01ff
+            IDOT = ((page >> 98) & 0x01fff) << 1
+            IDOT |= (page >> 49) & 1
+            Omega0 = ((page >> 68) & 0x01fffff) << 11
+            Omega0 |= (page >> 49) & 0x07ff
+            omega = ((page >> 38) & 0x07ff) << 21
+            omega |= (page >> 9) & 0x01fffff
+            Rev = (page >> 8) & 1
+            s += ("\n    toeLSB %u i0 %u Cic %u Omegadot %u Cis %u"
+                  "\n    IDOT %u Omega0 %u omega %u Rev %u" %
+                  (toeLSB, i0, Cic, Omegadot, Cis, IDOT, Omega0, omega, Rev))
+        elif FraID in [4, 5]:
+            Pnum = (page >> 250) & 0x07f
+            s += "\n    Pnum %u: " % Pnum
+            if (((4 == FraID and (1 <= Pnum <= 24)) or
+                 (1 <= Pnum <= 6) or
+                 (11 <= Pnum <= 23))):
+                # Subfram 4, page 1 to 24: Almanac
+                # Subfram 5, page 1 to 6: Almanac
+                # Subfram 5, page 11 to 23: maybe Almanac
+                AmEpID = (page >> 8) & 3
+                if 3 != AmEpID:
+                    # not Almanac
+                    s += "Reserved AmEpID %u" % AmEpID
+                else:
+                    sqrtA = ((page >> 248) & 3) << 22
+                    sqrtA |= (page >> 218) & 0x03fffff
+                    a1 = (page >> 199) & 0x07ff
+                    a0 = (page >> 188) & 0x07ff
+                    Omega0 = ((page >> 158) & 0x3fffff) << 2
+                    Omega0 |= (page >> 148) & 3
+                    e = (page >> 131) & 0x01ffff
+                    deltai = ((page >> 128) & 3) << 13
+                    deltai |= (page >> 107) & 0x01ffff
+                    t0a = (page >> 99) & 0x0ff
+                    Omegadot = ((page >> 98) & 1) << 16
+                    Omegadot |= (page >> 74) & 0x0ffff
+                    omega = ((page >> 68) & 0x03f) << 18
+                    omega |= (page >> 42) & 0x03ffff
+                    M0 = ((page >> 38) & 0x0f) << 20
+                    M0 |= (page >> 10) & 0x0fffff
+                    s += ("Almanac; sqrtA %u a1 %u a0 %u Omega0 %u"
+                          "\n         e %u deltai %u t0a %u Omegadot %u"
+                          "\n         omega %u M0 %u AmEpID %u" %
+                          (sqrtA, a1, a0, Omega0, e, deltai, t0a, Omegadot,
+                           omega, M0, AmEpID))
+            elif 5 == FraID:
+                if Pnum in [7, 8, 24]:
+                    # make a packed integer
+                    hlth = 0
+                    for i in range(0, 10):
+                        hlth <<= 22
+                        # remove top two random bits and last 8 bits parity
+                        hlth |= (words[i] & 0x3fffffff) >> 8
+
+                if 7 == Pnum:
+                    s += "Health 1 to 19:\n   "
+                    # remove 7 reserved bits from last word
+                    hlth >>= 7
+                    for i in range(1, 20):
+                        # take 9 bits at a time from the top
+                        h = (hlth >> ((19 - i) * 9)) & 0x1ff
+                        s += " %3x" % h
+                elif 8 == Pnum:
+                    # remove 63 reserved bits from LSBs
+                    hlth >>= 63
+                    WNa = (hlth >> 8) & 0x0ff
+                    t0a = hlth & 0x0ff
+                    # Hea20 to Hea30 now in the LSB
+                    hlth >>= 16
+                    s += "Health 20 to 30 WNa %u t0a %u\n       " % (WNa, t0a)
+                    for i in range(20, 31):
+                        # take 9 bits at a time from the top
+                        h = (hlth >> ((30 - i) * 9)) & 0x1ff
+                        s += " %3x" % h
+                elif 9 == Pnum:
+                    A0GPS = (page >> 106) & 0x03fff
+                    A1GPS = ((page >> 188) & 0x03) << 14
+                    A1GPS |= (page >> 166) & 0x03fff
+                    A0GAL = ((page >> 158) & 0x0ff) << 6
+                    A0GAL |= (page >> 144) & 0x03f
+                    A1GAL = (page >> 128) & 0x0ffff
+                    A0GLO = (page >> 106) & 0x03fff
+                    A1GLO = ((page >> 98) & 0x0f) << 8
+                    A1GLO |= (page >> 82) & 0x0f
+                    s += ("Timing A0GPS %u A1GPS %u A0GAL %u A1GAL %u"
+                          "\n       A0GLO %u A1GLO %u" %
+                          (A0GPS, A1GPS, A0GAL, A1GAL, A0GLO, A1GLO))
+                elif 10 == Pnum:
+                    deltatLS = ((page >> 248) & 0x03) << 6
+                    deltatLS |= (page >> 234) & 0x03f
+                    deltatLSF = (page >> 226) & 0x0ff
+                    WNLSF = (page >> 218) & 0x0ff
+                    A0UTC = ((page >> 188) & 0x03fffff) << 10
+                    A0UTC |= (page >> 170) & 0x03ff
+                    A1UTC = ((page >> 158) & 0x0fff) << 12
+                    A1UTC |= (page >> 138) & 0x0fff
+                    DN = (page >> 130) & 0x0ff
+                    s += ("Timing: deltatLS %u deltatLSF %u WNLSF %u A0UTC %u"
+                          " A1UTC %u" %
+                          (deltatLS, deltatLSF, WNLSF, A0UTC, A1UTC))
+                elif 24 == Pnum:
+                    # ICD calls this AmID and AmEpID
+                    AmEpID = (page >> 83) & 3
+                    if 3 != AmEpID:
+                        # not Almanac
+                        s += "Reserved AmEpID %u" % AmEpID
+                    else:
+                        s += "Health 31 to 43: AmEpID %u" % AmEpID
+                        # Hea31 to Hea43 now in the LSB
+                        hlth >>= 85
+                        s += "Health 31 to 43 t0a %u\n       " % SOW
+                        for i in range(31, 44):
+                            # take 9 bits at a time from the top
+                            h = (hlth >> ((43 - i) * 9)) & 0x1ff
+                            s += " %3x" % h
+                else:
+                    s += "Unknown page number"
+            else:
+                s += "Unknown page number"
+
+        return s
+
+    def _decode_sfrbx_gal(self, words):
+        """Decode UBX-RXM-SFRBX Galileo I/NAV frames"""
+        # Galileo_OS_SIS_ICD_v2.0.pdf
+        # See u-blox8-M8_ReceiverDescrProtSpec_UBX-13003221.pdf
+        # Section 10.5 Galileo
+        # gotta decode the u-blox munging and the Galileo packing...
+
+        if 8 > len(words):
+            return "\n    GAL: runt message, len %u" % len(words)
+
+        s = ""
+        if 8 != len(words):
+            s = "\n    GAL: long message? len %u" % len(words)
+
+        # always zero on E5b-I, always 1 on E1-B
+        even = words[0] >> 31
+        # zero for nominal page, one for alert page
+        page_type = (words[0] >> 30) & 1
+        word_type = (words[0] >> 24) & 0x03f
+        s += ("\n    GAL: even %u page_type %u word_type %u" %
+              (even, page_type, word_type))
+
+        if (1 == page_type):
+            # Alerts pages are all "Reserved"
+            s += "\n    Alert page"
+            return s
+
+        if (1 == even):
+            # page flipped!?
+            s += "\n    page flipped!?"
+            return s
+
+        # untangle u-blox words into a Galileo 128 bit page
+        # except we get 130 bits...
+        # even (1), page (1), 128 data bits
+        page = words[0] << 32
+        page |= words[1]
+        page <<= 32
+        page |= words[2]
+        page <<= 18
+        page |= (words[3] >> 14) & 0x03ffff
+        page <<= 16
+        page |= (words[4] >> 14) & 0x0ffff
+
+        # sanity check
+        if (((page >> 122) & 0x3f) != word_type):
+            s += "\n    Math Error!"
+            return s
+
+        # all unscaled
+        if (0 == word_type):
+            s += "\n    Spare Word"
+            time = (page >> 120) & 3
+            if 2 == time:
+                # valid time
+                WN = (page >> 20) & 0x0fff
+                TOW = page & 0x0fffff
+                s += " WN %u TOW %u" % (WN, TOW)
+
+        elif (1 == word_type):
+            IODnav = (page >> 112) & 0x03ff
+            toe = (page >> 98) & 0x03fff
+            M0 = (page >> 66) & 0x0ffffffff
+            e = (page >> 34) & 0x0ffffffff
+            sqrt_A = (page >> 2) & 0x0ffffffff
+            s += ("\n    Ephemeris 1: IODnav %u toe %u M0 %u e %u  sqrt_A %u" %
+                  (IODnav, toe, M0, e, sqrt_A))
+        elif (2 == word_type):
+            IODnav = (page >> 112) & 0x03ff
+            Omega0 = (page >> 80) & 0x0ffffffff
+            i0 = (page >> 48) & 0x0ffffffff
+            omega = (page >> 16) & 0x0ffffffff
+            i_dot = (page >> 2) & 0x03fff
+            s += ("\n    Ephemeris 2: IODnav %u Omega0 %u i0 %u"
+                  "\n       omega %u i_dot %u" %
+                  (IODnav, Omega0, i0, omega, i_dot))
+        elif (3 == word_type):
+            IODnav = (page >> 112) & 0x03ff
+            Omega_dot = (page >> 88) & 0x0ffffff
+            delta_n = (page >> 72) & 0x0ffff
+            Cuc = (page >> 56) & 0x0ffff
+            Cus = (page >> 40) & 0x0ffff
+            Crc = (page >> 24) & 0x0ffff
+            Crs = (page >> 8) & 0x0ffff
+            SISA = page & 0x0ff
+            s += ("\n    Ephemeris 3: IODnav %u Omega_dot %u delta_n %u"
+                  "\n       Cuc %u Cus %u Crs %u Crs %u SISA %u" %
+                  (IODnav, Omega_dot, delta_n, Cuc, Cus, Crc, Crc, SISA))
+        elif (4 == word_type):
+            IODnav = (page >> 112) & 0x03ff
+            SVID = (page >> 106) & 0x03f
+            Cic = (page >> 90) & 0x0ffff
+            Cis = (page >> 74) & 0x0ffff
+            t0c = (page >> 60) & 0x03fff
+            af0 = (page >> 29) & 0x07fffffff
+            af1 = (page >> 8) & 0x01fffff
+            af2 = (page >> 2) & 0x03f
+            s += ("\n    Ephemeris 4: IODnav %u SVID %u Cic %u Cis %u"
+                  "\n       t0c %u af0 %u af1 %u af2 %u" %
+                  (IODnav, SVID, Cic, Cis, t0c, af0, af1, af2))
+        elif (5 == word_type):
+            Ax_af0 = (page >> 111) & 0x7ff
+            Ax_af1 = (page >> 100) & 0x7ff
+            Ax_af2 = (page >> 86) & 0x3fff
+            Iono1 = (page >> 85) & 1
+            Iono2 = (page >> 84) & 1
+            Iono3 = (page >> 83) & 1
+            Iono4 = (page >> 82) & 1
+            Iono5 = (page >> 81) & 1
+            BGD_E1E5a = (page >> 71) & 0x3ff
+            BGD_E1E5b = (page >> 61) & 0x3ff
+            E5BHS = (page >> 59) & 3
+            E1BHS = (page >> 57) & 3
+            E5BDVS = (page >> 56) & 1
+            E1BDVS = (page >> 55) & 1
+            WN = (page >> 43) & 0x0fff
+            TOW = (page >> 23) & 0x0fffff
+            s += ("\n    Ionosphere: Ax_af0 %u Ax_af1 %u Ax_af2 %u"
+                  "\n       Iono1 %u Iono2 %u Iono3 %u Iono4 %u Iono5 %u"
+                  "\n       BGD_E1E5a %u BGD_E1E5b %u E5BHS %u E1BHS %u"
+                  "\n       E5BDVS %u E1BDVS %u WN %u TOW %u" %
+                  (Ax_af0, Ax_af1, Ax_af2, Iono1, Iono2, Iono3, Iono4, Iono5,
+                   BGD_E1E5a, BGD_E1E5b, E5BHS, E1BHS, E5BDVS, E1BDVS,
+                   WN, TOW))
+        elif (6 == word_type):
+            A0 = (page >> 90) & 0x0ffffffff
+            A1 = (page >> 66) & 0x0ffffff
+            delta_tLS = (page >> 58) & 0x0ff
+            t0t = (page >> 50) & 0x0ff
+            WN0t = (page >> 42) & 0x0ff
+            WNLSF = (page >> 34) & 0x0ff
+            DN = (page >> 31) & 7
+            delta_tLSF = (page >> 23) & 0x0ff
+            TOW = (page >> 3) & 0x0fffff
+            s += ("\n    GST-UTC: A0 %u A1 %u delta_tLS %u t0t %u WN0t %u"
+                  "\n       WNLSF %u DN %u delta_tLSF %u TOW %u" %
+                  (A0, A1, delta_tLS, t0t, WN0t, WNLSF, DN, delta_tLSF, TOW))
+        elif (7 == word_type):
+            IODa = (page >> 118) & 0x0f
+            WNa = (page >> 116) & 0x03
+            t0a = (page >> 106) & 0x03ff
+            SVID1 = (page >> 100) & 0x03f
+            delta_sqrtA = (page >> 87) & 0x01fff
+            e = (page >> 76) & 0x07ff
+            omega = (page >> 60) & 0x0ffff
+            delta_i = (page >> 49) & 0x07ff
+            Omage0 = (page >> 33) & 0x0ffff
+            Omage_dot = (page >> 22) & 0x07ff
+            M0 = (page >> 6) & 0x0ffff
+            s += ("\n    Almanac SVID1 (1/2): IODa %u WNa %u t0a %u SVID1 %u"
+                  "\n       delta_sqrtA %u e %u omega %u delta_i %u Omage0 %u"
+                  "\n       Omage_dot %u M0 %u" %
+                  (IODa, WNa, t0a, SVID1, delta_sqrtA, e, omega, delta_i,
+                   Omage0, Omage_dot, M0))
+        elif (8 == word_type):
+            IODa = (page >> 118) & 0x0f
+            af0 = (page >> 102) & 0x0ffff
+            af1 = (page >> 89) & 0x01fff
+            E5BHS = (page >> 87) & 3
+            E1BHS = (page >> 85) & 3
+            SVID2 = (page >> 79) & 0x03f
+            delta_sqrtA = (page >> 66) & 0x01fff
+            e = (page >> 55) & 0x07ff
+            omega = (page >> 39) & 0x0ffff
+            delta_i = (page >> 28) & 0x07ff
+            Omage0 = (page >> 12) & 0x0ffff
+            Omage_dot = (page >> 1) & 0x07ff
+            s += ("\n    Almanac SVID1 (2/2): IODa %u af0 %u af1 %u E5BHS %u "
+                  "E1BHS %u"
+                  "\n       SVID2 %u delta_sqrtA %u e %u omega %u delta_i %u"
+                  "\n       Omage0 %u Omage_dot %u" %
+                  (IODa, af0, af1, E5BHS, E1BHS, SVID2, delta_sqrtA, e, omega,
+                   delta_i, Omage0, Omage_dot))
+        elif (9 == word_type):
+            IODa = (page >> 118) & 0x0f
+            WNa = (page >> 116) & 3
+            t0a = (page >> 106) & 0x03ff
+            M0 = (page >> 90) & 0x0ffff
+            af0 = (page >> 74) & 0x0ffff
+            af1 = (page >> 61) & 0x01fff
+            E5BHS = (page >> 59) & 3
+            E1BHS = (page >> 57) & 3
+            SVID3 = (page >> 51) & 0x03f
+            delta_sqrtA = (page >> 38) & 0x01fff
+            e = (page >> 27) & 0x07ff
+            omega = (page >> 11) & 0x0ffff
+            delta_i = page & 0x07ff
+            s += ("\n    Almanac SVID2 (2/2): IODa %u WNa %u t0a %u M0 %u"
+                  "\n       af0 %u af1 %u E5BHS %u E1BHS %u"
+                  "\n       SVID3 %u delta_sqrtA %u e %u omega %u delta_i %u" %
+                  (IODa, WNa, t0a, M0, af0, af1, E5BHS, E1BHS, SVID3,
+                   delta_sqrtA, e, omega, delta_i))
+        elif (10 == word_type):
+            IODa = (page >> 118) & 0x0f
+            Omage0 = (page >> 102) & 0x0ffff
+            Omage_dot = (page >> 91) & 0x07ff
+            M0 = (page >> 75) & 0x0ffff
+            af0 = (page >> 59) & 0x0ffff
+            af1 = (page >> 46) & 0x01fff
+            E5BHS = (page >> 44) & 3
+            E1BHS = (page >> 42) & 3
+            A0G = (page >> 26) & 0x0ffff
+            A1G = (page >> 14) & 0x0fff
+            t0G = (page >> 6) & 0x0ff
+            WN0G = page & 0x3f
+            s += ("\n    Almanac SVID3 (2/2): IODa %u Omage0 %u Omage_dot %u"
+                  "\n       M0 %u af0 %u af1 %u E5BHS %u E1BHS %u"
+                  "\n       A0G %u A1G %u t0G %u WN0G %u" %
+                  (IODa, Omage0, Omage_dot, M0, af0, af1, E5BHS, E1BHS,
+                   A0G, A1G, t0G, WN0G))
+        elif (16 == word_type):
+            deltaAred = (page >> 117) & 0x01f
+            exred = (page >> 104) & 0x01fff
+            eyred = (page >> 91) & 0x01fff
+            deltai0red = (page >> 74) & 0x01ffff
+            Omega0red = (page >> 51) & 0x07fffff
+            lambda0red = (page >> 28) & 0x07fffff
+            af0red = (page >> 6) & 0x03fffff
+            af1red = page & 0x03f
+            s += ("\n    Reduced Clock and Ephemeris Data: deltaAred %u"
+                  "\n       exred %u eyred %u deltai0red %u Omega0red %u"
+                  "\n       lambda0red %u af0red %u af1red %u" %
+                  (deltaAred, exred, eyred, deltai0red, Omega0red,
+                   lambda0red, af0red, af1red))
+        elif (17 <= word_type and 20 >= word_type):
+            s += "\n    FEC2 Reed-Solomon for Clock and Ephemeris Data"
+        elif (63 == word_type):
+            s += "\n    Dummy Page"
+
+        return s
+
+    def _decode_sfrbx_glo(self, words):
+        """Decode UBX-RXM-SFRBX GLONASS frames"""
+        # See u-blox8-M8_ReceiverDescrProtSpec_UBX-13003221.pdf
+        # Section 10.3 GLONASS
+        # L10F and L20F only
+        # ICD_GLONASS_5.1_(2008)_en.pdf "ICD L1, L2 GLONASS"
+        # gotta decode the u-blox munging and the GLONASS packing...
+        # u-blox stripts preamble
+        stringnum = (words[0] >> 27) & 0x0f
+
+        page = 0
+        for i in range(0, 4):
+            page <<= 32
+            page |= words[i] & 0x0ffffffff
+
+        # sanity check
+        if (((page >> 123) & 0x0f) != stringnum):
+            s = ("\n    GLO: Math Error! %u != %u"
+                 "\n      page %u" %
+                 (stringnum, (page >> 123) & 0xf, page))
+            return s
+
+        frame = page & 0x0ff
+        superframe = (page >> 16) & 0x0ffff
+
+        s = ("\n    GLO: superframe %u frame %u stringnum %u" %
+             (superframe, frame, stringnum))
+        if 1 == stringnum:
+            P1 = (page >> 119) & 3
+            tk = (page >> 107) & 0x0fff
+            xnp = (page >> 83) & 0x0ffffffff
+            xnpp = (page >> 78) & 0x01f
+            xn = (page >> 51) & 0xa30ffffffff
+            s += ("\n        Ephemeris 1: P1 %u tk %u xnp %u xnpp %u xn %u" %
+                  (P1, tk, xnp, xnpp, xn))
+        if 2 == stringnum:
+            Bn = (page >> 120) & 7
+            P2 = (page >> 119) & 1
+            tb = (page >> 112) & 0x07f
+            ynp = (page >> 83) & 0x0ffffffff
+            ynpp = (page >> 78) & 0x01f
+            yn = (page >> 51) & 0xa30ffffffff
+            s += ("\n        Ephemeris 2: Bn %u P2 %u tb %u ynp %u ynpp %u "
+                  "yn %u" %
+                  (Bn, P2, tb, ynp, ynpp, yn))
+        if 3 == stringnum:
+            P3 = (page >> 122) & 1
+            lambdan = (page >> 111) & 0x07fff
+            p = (page >> 108) & 3
+            ln = (page >> 107) & 1
+            znp = (page >> 83) & 0x0ffffffff
+            znpp = (page >> 78) & 0x01f
+            zn = (page >> 51) & 0xa30ffffffff
+            s += ("\n        Ephemeris 3: P3 %u znp %u znpp %u zn %u" %
+                  (P3, znp, znpp, zn))
+        if 4 == stringnum:
+            # n is SVID
+            taun = (page >> 101) & 0x03ffffff
+            deltataun = (page >> 96) & 0x01f
+            En = (page >> 91) & 0x01f
+            P4 = (page >> 76) & 1
+            FT = (page >> 72) & 0x0f
+            NT = (page >> 58) & 0x03fff
+            n = (page >> 53) & 0x1f
+            M = (page >> 51) & 3
+            s += ("\n        Ephemeris 4: taun %u deltataun %u En %u P4 %u"
+                  "\n           FT %u NT %u n %u M %u" %
+                  (taun, deltataun, En, P4, FT, NT, n, M))
+        if 5 == stringnum:
+            NA = (page >> 112) & 0x07ff
+            tauc = (page >> 80) & 0x0ffffffff
+            N4 = (page >> 74) & 0x01f
+            tauGPS = (page >> 52) & 0x03fffff
+            ln = (page >> 51) & 1
+            s += ("\n        Time: NA %u tauc %u N4 %u tauGPS %u ln %u" %
+                  (NA, tauc, N4, tauGPS, ln))
+        if stringnum in [6, 8, 10, 12, 14]:
+            if 5 == frame:
+                B1 = (page >> 112) & 0x07ff
+                B2 = (page >> 102) & 0x03ff
+                KP = (page >> 100) & 3
+                s += "\n        Extra 1: B1 %u B2 %u KP %u" % (B1, B2, KP)
+            else:
+                Cn = (page >> 122) & 1
+                m = (page >> 120) & 3
+                nA = (page >> 115) & 0x1f
+                tauA = (page >> 105) & 0x03ff
+                lambdaA = (page >> 84) & 0x01ffffff
+                deltaiA = (page >> 66) & 0x03ffff
+                epsilonA = (page >> 51) & 0x07fff
+                s += ("\n        Almanac: Cn %u m %u nA %u tauA %u "
+                      "lambdaA %u deltaiA %u"
+                      "\n          epsilonA %u" %
+                      (Cn, m, nA, tauA, lambdaA, deltaiA, epsilonA))
+        if stringnum in [7, 9, 11, 13, 15]:
+            if 5 == frame:
+                ln = (page >> 51) & 1
+                s += "\n        Extra 2: ln %u" % ln
+            else:
+                omegaA = (page >> 107) & 0x0ffff
+                tA = (page >> 86) & 0x01fffff
+                deltaTA = (page >> 64) & 0x03ffffff
+                deltaTpA = (page >> 57) & 0x07f
+                HA = (page >> 52) & 0x01f
+                ln = (page >> 51) & 1
+                s += ("\n        Almanac: omegaA %u tA %u deltaTA %u "
+                      "deltaTpA %u HA %u ln %u" %
+                      (omegaA, tA, deltaTA, deltaTpA, HA, ln))
+
+        return s
+
+    def _decode_sfrbx_sbas(self, words):
+        """Decode UBX-RXM-SFRBX SBAS subframes"""
+        # See u-blox8-M8_ReceiverDescrProtSpec_UBX-13003221.pdf
+        # Section 10.6 SBAS
+        # The WAAS Spec is RTCA DO-229, and is not cheap!
+        # the function coded w/o access to that document.
+        # WAAS message described here:
+        # https://gssc.esa.int/navipedia/index.php/The_EGNOS_SBAS_Message_Format_Explained
+
+        # preamble is 83, then 154, the 198, then repeats.
+        preamble = (words[0] >> 24) & 0x0ff
+        msg_type = (words[0] >> 18) & 0x03f
+        # untangle u-blox words into just message type and data
+        # 213 bits
+
+        page = 0
+        for i in range(0, 8):
+            page |= words[i] & 0x0ffffffff
+            page <<= 32
+        # trim parity and pad
+        page >>= 30
+
+        s = "\n   SBAS: preamble %u type %u" % (preamble, msg_type)
+        # sanity check
+        if (((page >> 244) & 0x03f) != msg_type):
+            s += ("\n    Math Error! %u != %u"
+                  "\n    x%x" %
+                  (msg_type, (page >> 212) & 0x3f, page))
+            return s
+
+        if 0 == msg_type:
+            s += "\n       Don't use"
+        elif 1 == msg_type:
+            s += "\n       PRN mask assignments"
+        elif 2 == msg_type:
+            s += "\n       Fast Corrections 2"
+        elif 3 == msg_type:
+            s += "\n       Fast Corrections 3"
+        elif 4 == msg_type:
+            s += "\n       Fast Corrections 4"
+        elif 5 == msg_type:
+            s += "\n       Fast Corrections 5"
+        elif 6 == msg_type:
+            s += "\n       Integity information"
+        elif 7 == msg_type:
+            s += "\n       Degradation Parameters"
+        elif 9 == msg_type:
+            s += "\n       Geo Navigation message (X,Y,Z, time, etc.)"
+        elif 10 == msg_type:
+            s += "\n       Degradation parameters"
+        elif 12 == msg_type:
+            s += "\n       SBAS Network time/UTC offset parameters"
+        elif 17 == msg_type:
+            s += "\n       Geo satellite almanacs"
+        elif 18 == msg_type:
+            s += "\n       Ionospheric grid points masks"
+        elif 24 == msg_type:
+            s += "\n       Mixed fast/long term satellite error corrections"
+        elif 25 == msg_type:
+            s += "\n       Long term satellite error corrections"
+        elif 26 == msg_type:
+            s += "\n       Ionospheric delay corrections"
+        elif 27 == msg_type:
+            s += "\n       SBAS Service message"
+        elif 28 == msg_type:
+            s += "\n       Clock Ephemeris Covariance Matrix message"
+        elif 31 == msg_type:
+            s += "\n       L5 Satellite Mask"
+        elif 32 == msg_type:
+            s += "\n       L5 Clock-Ephemeris Corrections/Covariance Matrix "
+        elif 34 == msg_type:
+            s += "\n       L5 Integrity message"
+        elif 35 == msg_type:
+            s += "\n       L5 Integrity message"
+        elif 36 == msg_type:
+            s += "\n       L5 Integrity message"
+        elif 37 == msg_type:
+            s += "\n       L5 Degradation Parameters and DREI Scale Table"
+        elif 39 == msg_type:
+            s += "\n       L5 SBAS Sats Ephemeris and Covariance Matrix"
+        elif 40 == msg_type:
+            s += "\n       L5 SBAS Sats Ephemeris and Covariance Matrix"
+        elif 47 == msg_type:
+            s += "\n       L5 SBAS broadcasting Satellite Almanac"
+        elif 62 == msg_type:
+            s += "\n       Instant Test Message"
+        elif 63 == msg_type:
+            s += "\n       Null Message"
+
+        return s
+
     cnav_msgids = {
         10: "Ephemeris 1",
         11: "Ephemeris 2",
@@ -5624,22 +7079,28 @@ High Precision GNSS products only."""
         """UBX-RXM-SFRBX decode, Broadcast Navigation Data Subframe"""
 
         # The way u-blox packs the subfram data is perverse, and
-        # undocuemnted.  Even more perverse than native subframes.
+        # barely undocumnted.  Even more perverse than native subframes.
 
         u = struct.unpack_from('<BBBBBBBB', buf, 0)
         s = (' gnssId %u svId %3u reserved1 %u freqId %u numWords %u\n'
-             '  chn %u version %u reserved2 %u\n' % u)
-        s += '    dwrd'
+             '  chn %u version %u reserved2 %u' % u)
         words = ()
         for i in range(0, u[4]):
             u1 = struct.unpack_from('<L', buf, 8 + (i * 4))
-            if 6 == (i % 7):
-                s += "\n        "
-            s += " %08x" % u1
             words += (u1[0],)
 
-        if 0 == u[0]:
-            # GPS
+        if gps.VERB_DECODE <= self.verbosity:
+            s += '\n    dwrd'
+            i = 0
+            for word in words:
+                s += " %08x" % word
+                if 6 == (i % 7):
+                    s += "\n        "
+                i += 1
+
+        if ((0 == u[0] or
+             5 == u[0])):
+            # GPS and QZSS
             preamble = words[0] >> 24
             if 0x8b == preamble:
                 # CNAV
@@ -5773,6 +7234,9 @@ High Precision GNSS products only."""
 
                     s += ("\n   dataid %u svid %u (page %s)\n" %
                           (words[2] >> 28, svid, page))
+                    if 'Unk' == page:
+                        s += "\n   Unknown page ????"
+                        return s
 
                     if 6 == page:
                         s += "    reserved"
@@ -5944,6 +7408,9 @@ High Precision GNSS products only."""
 
                     s += ("\n   dataid %u svid %u (page %s)\n" %
                           (words[2] >> 28, svid, page))
+                    if 'Unk' == page:
+                        s += "\n   Unknown page ????"
+                        return s
 
                     if 1 <= page <= 24:
                         s += self.almanac(words)
@@ -5967,10 +7434,30 @@ High Precision GNSS products only."""
                     else:
                         s += "    Reserved"
 
+        elif 1 == u[0]:
+            # SBAS
+            s += self._decode_sfrbx_sbas(words)
+
+        elif 2 == u[0]:
+            # Galileo
+            s += self._decode_sfrbx_gal(words)
+
+        elif 3 == u[0]:
+            # BeiDou
+            s += self._decode_sfrbx_bds(words)
+
+        elif 6 == u[0]:
+            # GLONASS
+            s += self._decode_sfrbx_glo(words)
+
         return s
 
     def rxm_svsi(self, buf):
-        """UBX-RXM-SVSI decode, SV Status Info"""
+        """UBX-RXM-SVSI decode, SV Status Info
+
+Gone in M10 (protVer 34)
+Use UBX-NAV-ORB instead
+"""
         m_len = len(buf)
 
         u = struct.unpack_from('<LhBB', buf, 0)
@@ -6006,7 +7493,8 @@ High Precision GNSS products only."""
                0x32: {'str': 'RTCM', 'dec': rxm_rtcm, 'minlen': 8,
                       'name': 'UBX-RXM-RTCM'},
                # Broadcom calls this BRM-ASC-SCLEEP
-               0x41: {'str': 'PMREQ', 'minlen': 8, 'name': 'UBX-RXM-PMREQ'},
+               0x41: {'str': 'PMREQ', 'dec': rxm_pmreq, 'minlen': 4,
+                      'name': 'UBX-RXM-PMREQ'},
                0x59: {'str': 'RLM', 'dec': rxm_rlm, 'minlen': 16,
                       'name': 'UBX-RXM-RLM'},
                0x61: {'str': 'IMES', 'dec': rxm_imes, 'minlen': 4,
@@ -6016,14 +7504,8 @@ High Precision GNSS products only."""
                }
 
     # UBX-SEC-
-    def sec_uniqid(self, buf):
-        """UBX-SEC_UNIQID decode Unique chip ID"""
 
-        # protVer 18 to 23
-        u = struct.unpack_from('<BBHBBBBB', buf, 0)
-        s = ("  version %u reserved %u %u uniqueId %#02x%02x%02x%02x%02x"
-             % u)
-        return s
+    # UBX-SEC-SESSID in protVer 34 and up
 
     def sec_sign(self, buf):
         """UBX-SEC_SIGN decode, Signature of a previous message"""
@@ -6033,6 +7515,25 @@ High Precision GNSS products only."""
         s = (" version %u reserved %u %u classId x%x messageID x%x "
              " checksum %u\n  hash " % u)
         s += gps.polystr(binascii.hexlify(buf[8:39]))
+        return s
+
+    def sec_uniqid(self, buf):
+        """UBX-SEC_UNIQID decode Unique chip ID
+
+changed in protVer 34
+"""
+
+        # protVer 18 is 9 bytes
+        # 10 bytes in protVer 34 and up
+        m_len = len(buf)
+        u = struct.unpack_from('<BBHBBBBB', buf, 0)
+        s = ("  version %u reserved %u %u uniqueId %#02x%02x%02x%02x%02x"
+             % u)
+        if (9 < m_len):
+            # version 2
+            u = struct.unpack_from('<B', buf, 9)
+            s += "%02x" % u
+
         return s
 
     sec_ids = {0x01: {'str': 'SIGN', 'minlen': 40, 'dec': sec_sign,
@@ -6059,7 +7560,10 @@ High Precision GNSS products only."""
         return s
 
     def tim_tp(self, buf):
-        """UBX-TIM-TP decode, Time Pulse Timedata"""
+        """UBX-TIM-TP decode, Time Pulse Timedata
+
+qErrInvalid add in protVer 34 and up
+"""
 
         u = struct.unpack_from('<LLlHbb', buf, 0)
         s = ('  towMS %u towSubMS %u qErr %d week %d\n'
@@ -6083,6 +7587,12 @@ High Precision GNSS products only."""
             s += "RAIM active"
         else:
             s += "RAIM ??"
+
+        # 9-series, protVer 32 and up.
+        if 0x08 & u[4]:
+            s += "Quantization error valid"
+        else:
+            s += "Quantization error invalid"
         return s
 
     tim_vrfy_flags = {
@@ -6095,7 +7605,7 @@ High Precision GNSS products only."""
         """UBX-TIM-VRFY decode, Sourced Time Verification"""
 
         u = struct.unpack_from('<llllHBB', buf, 0)
-        s = ('  itow %d frac %d deltaMs %d deltaMs %d\n'
+        s = ('  itow %d frac %d deltaMs %d deltaNs %d\n'
              '  wno %u flags x%x reserved1 %u' % u)
         if gps.VERB_DECODE <= self.verbosity:
             s += ('\n   flags (%s)' %
@@ -6431,8 +7941,8 @@ High Precision GNSS products only."""
                 # check checksum
                 chk = self.checksum(m_raw, len(m_raw))
                 if (chk[0] != m_ck_a) or (chk[1] != m_ck_b):
-                    print("gps/ubx: ERROR checksum failed,"
-                          "was (%d,%d) s/b (%d, %d)\n" %
+                    print("gps/ubx: ERROR checksum failed, "
+                          "was (%02x,%02x) s/b (%02x, %02x)\n" %
                           (m_ck_a, m_ck_b, chk[0], chk[1]))
 
                 s_payload = ''.join('{:02x} '.format(x) for x in m_payload)
@@ -6591,6 +8101,12 @@ High Precision GNSS products only."""
             0x61,              # msg id = NAV-EOE, first in protver 18
         )
 
+        # UBX for protver >= 27
+        ubx_27_nav_on = (
+            # Add NAV-SIG for L1/L2/L5 info
+            0x43,              # msg id = NAV-SIG
+        )
+
         # some we always turn off, user can enable later
         ubx_nav_off = (
             0x12,              # msg id = NAV-VELNED
@@ -6620,12 +8136,18 @@ High Precision GNSS products only."""
                 m_data[1] = idx
                 # UBX-CFG-MSG
                 self.gps_send(6, 1, m_data)
-
         else:
+            # 15 < protVer
             for id in ubx_15_nav_on:
                 m_data[1] = id
                 # UBX-CFG-MSG
                 self.gps_send(6, 1, m_data)
+
+            if 27 <= self.protver:
+                for id in ubx_27_nav_on:
+                    m_data[1] = id
+                    # UBX-CFG-MSG
+                    self.gps_send(6, 1, m_data)
 
             # turn off < 15 messages.  Yes this may make NAKs.
             m_data[2] = 0       # rate off
@@ -6654,6 +8176,27 @@ High Precision GNSS products only."""
         # set NAV-VELECEF rate
         self.send_cfg_msg(1, 0x11, able)
 
+    def send_able_esf(self, able, args):
+        """dis/enable basic ESF messages"""
+
+        esf_toggle = (
+            ubx.ESF_ALG,
+            ubx.ESF_INS,
+            # ESF-MEAS too much
+            # ESF-RAW too much
+            ubx.ESF_STATUS,
+            )
+
+        rate = 1 if able else 0
+
+        m_data = bytearray(3)
+        for (cls, mid) in esf_toggle:
+            m_data[0] = cls
+            m_data[1] = mid
+            m_data[2] = rate
+            # UBX-CFG-MSG
+            self.gps_send(6, 1, m_data)
+
     def send_able_gps(self, able, args):
         """dis/enable GPS/QZSS"""
         # GPS and QZSS both on, or both off, together
@@ -6663,7 +8206,11 @@ High Precision GNSS products only."""
         self.send_cfg_gnss1(5, able, args)
 
     def send_able_galileo(self, able, args):
-        """dis/enable GALILEO"""
+        """dis/enable GALILEO
+
+"If Galileo is enabled, UBX-CFG-GNSS must be followed by UBX-CFG-RST
+with resetMode set to Hardware reset."
+"""
         self.send_cfg_gnss1(2, able, args)
 
     def send_able_glonass(self, able, args):
@@ -6671,6 +8218,25 @@ High Precision GNSS products only."""
         # Two frequency GPS use BeiDou or GLONASS
         # disable, then enable
         self.send_cfg_gnss1(6, able, args)
+
+    def send_able_hnr(self, able, args):
+        """dis/enable HNR messages"""
+
+        esf_toggle = (
+            ubx.HNR_ATT,
+            ubx.HNR_INS,
+            ubx.HNR_PVT,
+            )
+
+        rate = 1 if able else 0
+
+        m_data = bytearray(3)
+        for (cls, mid) in esf_toggle:
+            m_data[0] = cls
+            m_data[1] = mid
+            m_data[2] = rate
+            # UBX-CFG-MSG
+            self.gps_send(6, 1, m_data)
 
     def send_able_logfilter(self, able, args):
         """Enable logging"""
@@ -6696,16 +8262,26 @@ High Precision GNSS products only."""
         # set UBX-CFG-LOGFILTER
         self.gps_send(6, 0x47, m_data)
 
+    def send_able_nav_sat(self, able, args):
+        """dis/enable UBX-NAV-SAT"""
+
+        rate = 1 if able else 0
+        m_data = bytearray([0x1, 0x35, rate])
+        self.gps_send(6, 1, m_data)
+
     def send_able_nav_sig(self, able, args):
-        """dis/enable UBX-NAV-SIG Time Pulse"""
+        """dis/enable UBX-NAV-SIG"""
+
         rate = 1 if able else 0
         m_data = bytearray([0x1, 0x43, rate])
         self.gps_send(6, 1, m_data)
 
     def send_able_ned(self, able, args):
         """Enable NAV-RELPOSNED and VELNED messages.
+
 protver 15+ required for VELNED
-protver 20+, and HP GNSS, required for RELPOSNED"""
+protver 20+, and HP GNSS, required for RELPOSNED
+"""
         if 15 > self.protver:
             sys.stderr.write('gps/ubx: WARNING: protver %d too low for NED\n' %
                              (self.protver))
@@ -6818,43 +8394,11 @@ protver 20+, and HP GNSS, required for RELPOSNED"""
     def send_able_pps(self, able, args):
         """dis/enable PPS, using UBX-CFG-TP5"""
 
-        m_data = bytearray(32)
-        m_data[0] = 0         # tpIdx
-        m_data[1] = 1         # version
-        m_data[2] = 0         # reserved
-        m_data[3] = 0         # reserved
-        m_data[4] = 2         # antCableDelay
-        m_data[5] = 0         # antCableDelay
-        m_data[6] = 0         # rfGroupDelay
-        m_data[7] = 0         # rfGroupDelay
-        m_data[8] = 0x40      # freqPeriod
-        m_data[9] = 0x42      # freqPeriod
-        m_data[10] = 0x0f     # freqPeriod
-        m_data[11] = 0        # freqPeriod
-        m_data[12] = 0x40     # freqPeriodLock
-        m_data[13] = 0x42     # freqPeriodLock
-        m_data[14] = 0x0f     # freqPeriodLock
-        m_data[15] = 0        # freqPeriodLock
-        m_data[16] = 0        # pulseLenRatio
-        m_data[17] = 0        # pulseLenRatio
-        m_data[18] = 0        # pulseLenRatio
-        m_data[19] = 0        # pulseLenRatio
-        m_data[20] = 0xa0     # pulseLenRatioLock
-        m_data[21] = 0x86     # pulseLenRatioLock
-        m_data[22] = 0x1      # pulseLenRatioLock
-        m_data[23] = 0        # pulseLenRatioLock
-        m_data[24] = 0        # userConfigDelay
-        m_data[25] = 0        # userConfigDelay
-        m_data[26] = 0        # userConfigDelay
-        m_data[27] = 0        # userConfigDelay
-        m_data[28] = 0x77     # flags
-        m_data[29] = 0        # flags
-        m_data[30] = 0        # flags
-        m_data[31] = 0        # flags
-        if not able:
-            m_data[28] &= ~1  # bit 0 is active
+        # This is actually a shortcut for a regular CFG-TP5 message
+        tp5_args = [''] * 9
+        tp5_args[8] = '0x77' if able else '0x76'
 
-        self.gps_send(6, 0x31, m_data)
+        self.send_cfg_tp5(tp5_args)
 
     def send_able_sbas(self, able, args):
         """dis/enable SBAS"""
@@ -7084,6 +8628,30 @@ Always double check with "-p CFG-GNSS".
         m_data[11] = 0          # flags, bits 24:31, unused
         self.gps_send(6, 0x3e, m_data)
 
+    def send_poll_cfg_esfalg(self, args):
+        """UBX-CFG-ESFALG, poll/set optional doAutoMntAlg"""
+
+        if 0 < len(args):
+            # optional set doAutoMntAlg
+            m_data = bytearray(12)
+            m_data[1] = int(args[0])
+        else:
+            m_data = bytearray(0)
+
+        self.gps_send(6, 0x56, m_data)
+
+    def send_poll_cfg_hnr(self, args):
+        """UBX-CFG-HNR, poll/set optional highNavRate"""
+
+        if 0 < len(args):
+            # optional set highNavRate
+            m_data = bytearray(4)
+            m_data[0] = int(args[0])
+        else:
+            m_data = bytearray(0)
+
+        self.gps_send(6, 0x5c, m_data)
+
     def poll_cfg_inf(self):
         """UBX-CFG-INF, poll"""
 
@@ -7108,11 +8676,28 @@ Always double check with "-p CFG-GNSS".
         if 2 < len(args):
             # optional set rate
             m_data = bytearray(3)
-            m_data[2] = int(args[2])
+            try:
+                m_data[2] = int(args[2], base=0)
+            except ValueError as e:
+                sys.stderr.write('gps/ubx: ERROR: CFG-MSG invalid rate: %s\n' %
+                                 e)
+                sys.exit(1)
         else:
             m_data = bytearray(2)
-        m_data[0] = int(args[0])
-        m_data[1] = int(args[1])
+
+        # allow binary, hex and octal.
+        try:
+            m_data[0] = int(args[0], base=0)
+        except ValueError as e:
+            sys.stderr.write('gps/ubx: ERROR: CFG-MSG invalid class: %s\n' %
+                             e)
+            sys.exit(1)
+        try:
+            m_data[1] = int(args[1], base=0)
+        except ValueError as e:
+            sys.stderr.write('gps/ubx: ERROR: CFG-MSG invalid ID: %s\n' %
+                             e)
+            sys.exit(1)
 
         self.gps_send(6, 1, m_data)
 
@@ -7219,15 +8804,52 @@ Always double check with "-p CFG-GNSS".
 
         self.gps_send(6, 0x8d, m_data)
 
-    def send_cfg_tp5(self, args):
-        """UBX-CFG-TP5, get time0 decodes"""
+    def get_int_arg(self, args, ndx, default=0):
+        """Convert args[ndx] to int, return default if not present"""
+        if ((type(args) is not list or
+             ndx >= len(args) or
+             0 == len(args[ndx]))):
+            return default
+        # Allow hex (0x, decimal, octal (0o) and binary (0b10) string input
+        return int(args[ndx], base=0)
 
+    def send_cfg_tp5(self, args):
+        """UBX-CFG-TP5, get/set timepulse config. Optional args:
+
+tpIdx, antCableDelay, rfGroupDelay, freqPeriod, freqPeriodLock,
+pulseLenRadio, pulseLenRadioLock, userConfigDelay, flags
+"""
         if 0 == len(args):
-            # poll default tpIdx 0
+            # poll with default tpIdx 0
             m_data = []
-        else:
-            # tpIdx
+        elif 1 == len(args):
+            # poll with the specified tpIdx
             m_data = bytearray([int(args[0])])
+        else:
+            # get/set timepulse
+            tpIdx = self.get_int_arg(args, 0)
+            antCableDelay = self.get_int_arg(args, 1, 2)
+            rfGroupDelay = self.get_int_arg(args, 2)
+            freqPeriod = self.get_int_arg(args, 3, 1000000)        # 1M us
+            freqPeriodLock = self.get_int_arg(args, 4, 1000000)    # 1M us
+            pulseLenRatio = self.get_int_arg(args, 5)
+            pulseLenRatioLock = self.get_int_arg(args, 6, 100000)  # 100k us
+            userConfigDelay = self.get_int_arg(args, 7)
+            flags = self.get_int_arg(args, 8, 0x77)
+
+            m_data = bytearray(32)
+            m_data[0] = tpIdx
+            m_data[1] = 1  # version
+            m_data[2] = 0  # reserved
+            m_data[3] = 0  # reserved
+            m_data[4:6] = pack_u16(antCableDelay)
+            m_data[6:8] = pack_u16(rfGroupDelay)
+            m_data[8:12] = pack_u32(freqPeriod)
+            m_data[12:16] = pack_u32(freqPeriodLock)
+            m_data[16:20] = pack_u32(pulseLenRatio)
+            m_data[20:24] = pack_u32(pulseLenRatioLock)
+            m_data[24:28] = pack_u32(userConfigDelay)
+            m_data[28:32] = pack_u32(flags)
 
         self.gps_send(6, 0x31, m_data)
 
@@ -7259,9 +8881,11 @@ Always double check with "-p CFG-GNSS".
         self.gps_send(6, 0, m_data)
 
     def send_cfg_valdel(self, keys):
-        """UBX-CFG-VALDEL, delete config items by key"""
-        # present in u-blox NEO-D9S+, protver 24
-        # present in 9-series and higher
+        """UBX-CFG-VALDEL, delete config items by key
+
+present in u-blox NEO-D9S+, protver 24
+present in 9-series and higher
+"""
 
         m_data = bytearray(4)
         m_data[0] = 0       # version, 0 = transactionless, 1 = transaction
@@ -7416,11 +9040,24 @@ Always double check with "-p CFG-GNSS".
         """generic send poll request"""
         self.gps_send(m_data[0], m_data[1], m_data[2:])
 
+    def send_cmds(self, cmds):
+        """Send a list of commands"""
+        # blast them for now, should do one at a time...
+        # for some reason NEO-M8U responds in different order!
+        # so can not depend on response order, or any response at all.
+        for cmd in cmds:
+            self.send_poll(cmd)
+
     CFG_ANT = [0x06, 0x13]
     CFG_BATCH = [0x06, 0x93]
     CFG_DAT = [0x06, 0x06]
+    CFG_ESFA = [0x06, 0x4c]
+    CFG_ESFALG = [0x06, 0x56]
+    CFG_ESFG = [0x06, 0x4d]
+    CFG_ESFWT = [0x06, 0x82]
     CFG_GNSS = [0x06, 0x3e]
     CFG_GEOFENCE = [0x06, 0x69]
+    CFG_HNR = [0x06, 0x5c]
     CFG_INF_0 = [0x06, 0x02, 0]
     CFG_INF_1 = [0x06, 0x02, 1]
     CFG_LOGFILTER = [0x06, 0x47]
@@ -7436,6 +9073,12 @@ Always double check with "-p CFG-GNSS".
     CFG_TMODE3 = [0x06, 0x71]
     CFG_TP5 = [0x06, 0x31]
     CFG_USB = [0x06, 0x1b]
+    ESF_ALG = [0x10, 0x14]
+    ESF_INS = [0x10, 0x15]
+    ESF_STATUS = [0x10, 0x10]
+    HNR_ATT = [0x28, 0x01]
+    HNR_INS = [0x28, 0x02]
+    HNR_PVT = [0x28, 0x00]
     LOG_INFO = [0x21, 0x08]
     MON_COMMS = [0x0a, 0x36]
     MON_GNSS = [0x0a, 0x28]
@@ -7451,8 +9094,33 @@ Always double check with "-p CFG-GNSS".
     NAV_SVIN = [0x01, 0x3b]
     TIM_SVIN = [0x0d, 0x04]
 
+    def send_poll_esf(self):
+        """ESR. poll ESF messages"""
+
+        cmds = [ubx.CFG_ESFA,
+                ubx.CFG_ESFALG,
+                ubx.CFG_ESFG,
+                ubx.CFG_ESFWT,
+                ubx.ESF_ALG,
+                ubx.ESF_INS,
+                ubx.ESF_STATUS,
+                ]
+
+        self.send_cmds(cmds)
+
+    def send_poll_hnr(self):
+        """HNR. poll HNR messages"""
+
+        cmds = [ubx.CFG_HNR,
+                ubx.HNR_ATT,
+                ubx.HNR_INS,
+                ubx.HNR_PVT,
+                ]
+
+        self.send_cmds(cmds)
+
     def get_config(self):
-        """CONFIG.  Get a bunch of config messages"""
+        """CONFIG. Get a bunch of config messages"""
 
         cmds = [ubx.MON_VER,          # UBX-MON-VER
                 ubx.CFG_ANT,          # UBX-CFG-ANT
@@ -7485,9 +9153,7 @@ Always double check with "-p CFG-GNSS".
         if 22 < self.protver:
             cmds.append(ubx.CFG_BATCH)   # UBX-CFG-BATCH, protVer 23.01+
 
-        # blast them for now, should do one at a time...
-        for cmd in cmds:
-            self.send_poll(cmd)
+        self.send_cmds(cmds)
 
     def get_status(self):
         """STATUS.  Get a bunch of status messages"""
@@ -7518,9 +9184,7 @@ Always double check with "-p CFG-GNSS".
                      ubx.TIM_SVIN,        # UBX-TIM-SVIN
                      ])
 
-        # blast them for now, should do one at a time...
-        for cmd in cmds:
-            self.send_poll(cmd)
+        self.send_cmds(cmds)
 
     able_commands = {
         # en/dis able BATCH
@@ -7535,6 +9199,9 @@ Always double check with "-p CFG-GNSS".
         # en/dis able ECEF
         "ECEF": {"command": send_able_ecef,
                  "help": "ECEF"},
+        # en/dis able basic ESF messages
+        "ESF": {"command": send_able_esf,
+                "help": "basic ESF messages"},
         # en/dis able GPS
         "GPS": {"command": send_able_gps,
                 "help": "GPS and QZSS L1C/A. GPS,2 for L1C/A and L2C"},
@@ -7544,9 +9211,15 @@ Always double check with "-p CFG-GNSS".
         # en/dis able GLONASS
         "GLONASS": {"command": send_able_glonass,
                     "help": "GLONASS L1. GLONASS,2 for L1 and L2"},
+        # en/dis able HNR messages
+        "HNR": {"command": send_able_hnr,
+                "help": "basic HNR messages"},
         # en/dis able LOG
         "LOG": {"command": send_able_logfilter,
                 "help": "Data Logger"},
+        # en/dis able NAV-SAT Cmessage
+        "NAV-SAT": {"command": send_able_nav_sat,
+                    "help": "NAV-SAT Satellite Information message"},
         # en/dis able NAV-SIG Cmessage
         "NAV-SIG": {"command": send_able_nav_sig,
                     "help": "NAV-SIG Signal Information message"},
@@ -7630,6 +9303,7 @@ Always double check with "-p CFG-GNSS".
         "WARMBOOT": {"command": send_cfg_rst,
                      "help": "UBX-CFG-RST warmboot the GPS",
                      "opt": 1},
+        # UBX-AID-* removed from ProtVer 34 and up.
         # UBX-AID-ALM
         "AID-ALM": {"command": send_poll, "opt": [0x0b, 0x30],
                     "help": "poll UBX-AID-ALM Poll GPS Aiding Almanac Data"},
@@ -7667,8 +9341,23 @@ Always double check with "-p CFG-GNSS".
                       "help": "poll UBX-CFG-DGNSS DGNSS configuration"},
         # UBX-CFG-DOSC
         "CFG-DOSC": {"command": send_poll, "opt": [0x06, 0x61],
-                     "help": "poll UBX-CFG-DOSC Disciplined oscillator "
+                     "help": "poll UBX-CFG-DOSC Disciplined oscillator"
                      "configuration"},
+        # UBX-CFG-ESFA
+        "CFG-ESFA": {"command": send_poll, "opt": CFG_ESFA,
+                     "help": "poll UBX-CFG-ESFA Accelerometer configuration"},
+        # UBX-CFG-ESFALG
+        "CFG-ESFALG": {"command": send_poll_cfg_esfalg,
+                       "help": "poll UBX-CFG-ESFALG IMU alignment config\n"
+                               "                    "
+                               "UBX-CFG-ESFALG[,doAutoMntAlg] optional",
+                       "args": 0},
+        # UBX-CFG-ESFG
+        "CFG-ESFG": {"command": send_poll, "opt": CFG_ESFG,
+                     "help": "poll UBX-CFG-ESFG Gyro configuration"},
+        # UBX-CFG-ESWTF
+        "CFG-ESFWT": {"command": send_poll, "opt": CFG_ESFWT,
+                      "help": "poll UBX-CFG-ESFWY Wheel tick configuration"},
         # UBX-CFG-ESRC
         "CFG-ESRC": {"command": send_poll, "opt": [0x06, 0x60],
                      "help": "poll UBX-CFG-ESRC External synchronization "
@@ -7684,8 +9373,13 @@ Always double check with "-p CFG-GNSS".
         "CFG-GNSS": {"command": send_poll, "opt": [0x06, 0x3e],
                      "help": "poll UBX-CFG-GNSS GNSS config"},
         # UBX-CFG-HNR
-        "CFG-HNR": {"command": send_poll, "opt": [0x06, 0x5c],
-                    "help": "poll UBX-CFG-HNR High Navigation Rate Settings"},
+        "CFG-HNR": {"command": send_poll_cfg_hnr,
+                    "help": "poll UBX-CFG-HNR Settings\n"
+                            "                    "
+                            "set UBX-CFG-HNR,[highNavRate]\n"
+                            "                    "
+                            "highNavRate is optional and sets rate.",
+                    "args": 0},
         # UBX-CFG-INF
         "CFG-INF": {"command": poll_cfg_inf,
                     "help": "poll UBX-CFG-INF Information Message "
@@ -7787,22 +9481,43 @@ Always double check with "-p CFG-GNSS".
         "CFG-TP5": {"command": send_cfg_tp5,
                     "help": "poll UBX-TIM-TP5 time pulse decodes.\n"
                             "                    "
-                            "CFG-TP5[,tpIdx]  Default tpIdx is 0",
+                            "CFG-TP5[,tpIdx]  Default tpIdx is 0\n"
+                            "                  "
+                            "set UBX-TIM-TP5 time pulse decodes.\n"
+                            "                    "
+                            "CFG-TP5,[tpIdx],[antCableDelay],[rfGroupDelay]\n"
+                            "                      "
+                            ",[freqPeriod],[freqPeriodLock],[pulseLenRadio]\n"
+                            "                      "
+                            ",[pulseLenRadioLock],[userConfigDelay],[flags]",
                     "args": 1},
         # UBX-CFG-USB
         "CFG-USB": {"command": send_poll, "opt": [0x06, 0x1b],
                     "help": "poll UBX-CFG-USB USB config"},
+        # UBX-EFS-
+        "ESF": {"command": send_poll_esf, "help": "poll ESF-*"},
+        # UBX-ESF-ALG
+        "ESF-ALG": {"command": send_poll, "opt": ESF_ALG,
+                    "help": "poll UBX-ESF-ALG IMU alignment information"},
         # UBX-ESF-INS
-        "ESF-INS": {"command": send_poll, "opt": [0x10, 0x15],
+        "ESF-INS": {"command": send_poll, "opt": ESF_INS,
                     "help": "poll UBX-ESF-INS Vehicle dynamics info"},
-        # UBX-ESF-MEAS
-        "ESF-MEAS": {"command": send_poll, "opt": [0x10, 0x02],
-                     "help": "poll UBX-ESF-MEAS External sensor fusion "
-                             "measurements"},
         # UBX-ESF-STATUS
-        "ESF-STATUS": {"command": send_poll, "opt": [0x10, 0x10],
+        "ESF-STATUS": {"command": send_poll, "opt": ESF_STATUS,
                        "help": "poll UBX-ESF-STATUS External sensor fusion "
                                "status"},
+        # UBX-HNR-
+        "HNR": {"command": send_poll_hnr,
+                "help": "poll CFG-HNR and HNR-*"},
+        # UBX-HNR-ATT
+        "HNR-ATT": {"command": send_poll, "opt": [0x28, 0x01],
+                    "help": "poll UBX-HNR-ATT Attitude solution"},
+        # UBX-HNR-INS
+        "HNR-INS": {"command": send_poll, "opt": [0x28, 0x02],
+                    "help": "poll UBX-HNR-INS Vehicle dynamics information"},
+        # UBX-HNR-PVT
+        "HNR-PVT": {"command": send_poll, "opt": [0x28, 0x00],
+                    "help": "poll UBX-HNR-PVT HNR PVT solution"},
         # UBX-LOG-CREATE
         "LOG-CREATE": {"command": send_poll,
                        "opt": [0x21, 0x07, 0, 1, 0, 0, 0, 0, 0, 0],
@@ -7885,6 +9600,9 @@ Always double check with "-p CFG-GNSS".
         "MON-SMGR": {"command": send_poll, "opt": [0x0a, 0x2e],
                      "help": "poll UBX-MON-SMGR Synchronization manager "
                      "configuration"},
+        # UBX-MON-SPAN
+        "MON-SPAN": {"command": send_poll, "opt": [0x0a, 0x31],
+                     "help": "poll UBX-MON-SPAN Signal characteristics"},
         # UBX-MON-TXBUF
         "MON-TXBUF": {"command": send_poll, "opt": [0x0a, 0x08],
                       "help": "poll UBX-MON-TXBUF Transmitter Buffer Status"},
@@ -7907,6 +9625,9 @@ Always double check with "-p CFG-GNSS".
         # UBX-NAV-DOP
         "NAV-DOP": {"command": send_poll, "opt": [0x01, 0x04],
                     "help": "poll UBX-NAV-DOP Dilution of Precision"},
+        # UBX-NAV-EELL
+        "NAV-EELL": {"command": send_poll, "opt": [0x01, 0x3d],
+                     "help": "poll UBX-NAV-EELL Position error ellipse"},
         # UBX-NAV-GEOFENCE
         "NAV-GEOFENCE": {"command": send_poll, "opt": [0x01, 0x39],
                          "help": "poll UBX-NAV-GEOFENCE Geofence status"},

@@ -1,8 +1,72 @@
-gpsd (3.22-4) UNRELEASED; urgency=medium
+gpsd (3.25-2) unstable; urgency=medium
 
-  * update
+  [ Boian Bonev ]
+  * Refresh patches
+  * Fix the second instance of 067b:2303 (Closes: #884744, LP: #2012207)
 
- -- Bernd Zeimetz <bzed@debian.org>  Tue, 14 Jun 2022 20:48:03 +0800
+  [ Adrian Bunk ]
+  * Don't build depend on python3-gps
+
+ -- Boian Bonev <bbonev@ipacct.com>  Mon, 11 Sep 2023 15:47:57 +0000
+
+gpsd (3.25-1) unstable; urgency=medium
+
+  * Upload to sid
+
+ -- Boian Bonev <bbonev@ipacct.com>  Wed, 28 Jun 2023 21:37:43 +0000
+
+gpsd (3.25-1~exp2) experimental; urgency=medium
+
+  * Add patch for upstream fix for build on Hurd
+
+ -- Boian Bonev <bbonev@ipacct.com>  Sat, 24 Jun 2023 19:59:21 +0000
+
+gpsd (3.25-1~exp1) experimental; urgency=medium
+
+  [ Bernd Zeimetz ]
+  ** SNAPSHOT build @133003725db331160722e54738bfb6b52bb0e501 **
+
+  * [da10dc6b] New upstream version 3.22
+  * [c09c5182] New upstream version 3.23.1
+  * [02c4d4ea] Refreshing patches
+  * [56072ace] snapshot changelog
+  * [4fe064ce] remove gpssnmp for now.
+    Unknown oid being used.
+  * [6c251561] Install gpsdebuginfo.
+
+  [ Boian Bonev ]
+  * New maintainer (Closes: #1034532)
+  * New upstream version 3.25
+  * Refresh patches
+  * Add patch fixing spelling
+  * Add upstream metadata
+  * Do not install libgpsdpacket.so symlink
+  * Install gpsinit
+  * Add patch fixing encoding/keywords in .desktop files
+  * Enable hardening flags in the build
+  * Enable parallel build
+  * Override lintian false positives
+  * Remove x bit from gps.py, __init__.py, packet.py and skyview.php
+  * State RRR=no
+  * Bump up standards to 4.6.2, no changes
+  * Update homepage to gpsd.io
+  * Install gpssnmp and MIB file in gpsd-tools
+  * Add contact in d/copyright
+  * Mark libqgpsmm-dev MA same
+  * Update copyright to new license BSD-2-clause
+    re-check all files with different copyright
+
+ -- Boian Bonev <bbonev@ipacct.com>  Mon, 05 Jun 2023 00:20:49 +0000
+
+gpsd (3.22-4.1) unstable; urgency=medium
+
+  * Non-maintainer upload
+
+  [ Christian Ehrhardt ]
+  * [17606570] d/p/gpsmon-gpsmon.c-Fix-silly-warning.patch: fix FTFBS
+    (Closes: #997178)
+
+ -- Paul Gevers <elbrus@debian.org>  Sun, 11 Sep 2022 16:45:05 +0200
 
 gpsd (3.22-4) unstable; urgency=high
 

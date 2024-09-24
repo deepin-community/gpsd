@@ -82,7 +82,7 @@ class satellite(object):
         self.prn = prn
 
     def position(self, time):
-        """Return right ascension and declination of satellite,"""
+        """Return right ascension and declination of satellite."""
         return
 
 # Next, the command interpreter.  This is an object that takes an
@@ -128,7 +128,7 @@ class gpssim(object):
         self.output = None
         self.satellites_used = 0
         self.skyview = None
-        self.status = gps.STATUS_NO_FIX
+        self.status = gps.STATUS_SIM
         self.validity = "V"
 
     def parse_tdl(self, line):

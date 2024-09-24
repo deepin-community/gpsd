@@ -1,8 +1,13 @@
 = GPSD Time Service HOWTO
+Gary E. Miller <gem@rellim.com>, Eric S. Raymond <esr@thyrsus.com>
+:date: 17 November 2021
 :description: How to set up an NTP Stratum 1 server using GPSD.
 :keywords: time, GPSD, NTP, time, precision, 1PPS, PPS, stratum, jitter
-Gary E. Miller <gem@rellim.com>, Eric S. Raymond <esr@thyrsus.com>
-28 June 2020
+:robots: index,follow
+:sectlinks:
+:toc: macro
+
+include::inc-menu.adoc[]
 
 This document is mastered in asciidoc format.  If you are reading it in HTML,
 you can find the original at the GPSD project website.
@@ -23,7 +28,7 @@ into more detail about the steps.
   which to use yet if you have easy access to both, but knowing which
   alternatives are readily available to you is a good place to start.
 
-. Verify that your gpsd version is at least 3.21.  Many problems are
+. Verify that your gpsd version is at least 3.22.  Many problems are
   caused by the use of old versions.  When in doubt, reinstall
   gpsd from the upstream source.  Many distributions ship old
   and/or broken versions of gpsd.
@@ -316,24 +321,26 @@ When gpsd is built with timeservice=yes:
 
 1.  The -n (nowait) option is forced: gpsd opens its command-line devices
     immediately on startup.  Assuming you do not start gpsd with systemd.
+    If you are using systemd ensure it is starting gpsd, not just the gpsd
+    service, on startup.
 
 2.  Forces the building of ntpshmmon and cgps.  Those programs would
     be built by default anyway, unless gpsdclients=no.
 
 3.  The configure will fail if pps is not available.
 
-4.  Most drivers will not be built.  You must specify the ones you need
-    when configuring.
+4.  Most drivers will not be built. You must specify the ones you need
+    when configuring. The NMEA 0183 driver is always built, no matter what.
 
 To configure the minimal timeservice build:
 
 -----------------------------------------------------------------------------
 $ scons -c
-$ scons timeservice=yes nmea0183=yes
+$ scons timeservice=yes
 -----------------------------------------------------------------------------
 
-You may substitute a different GNSS reciver protocol (e.g. "ublox" or
-"sirf").  Besides the daemon, this also builds cgps and ntpshmmon.
+You may add GNSS reciver protocol (e.g. "ublox=yes" or "sirf=yes").
+Besides the daemon, this also builds cgps and ntpshmmon.
 
 If you do not use timeservice=yes, then make sure the build is with
 pps=yes and ntpshm=yes (the defaults).  Like this:
@@ -408,7 +415,7 @@ is <<CHRONYDEFAULT>>. If you don't already know enough about time
 service to have a preference, the functional differences between them
 are unlikely to be significant to you; flip a coin.
 
-=== NTPSec ===
+=== NTPSec
 If you choose the ntpd option, it's best to go with the NTPsec version
 rather than legacy ntpd.  NTPsec shares some maintainers with GPSD,
 and has some significant improvements in security and performance.
@@ -888,7 +895,18 @@ SHM(0) time is consistent with your other servers (and other local
 reference clocks, if you have any). We'll describe how to diagnose and
 tune your server configuration in a later section.
 
-Also note that after cold-starting ntpd it will calibrate for up to 15
+NTP is a cluster protocol.  It sorts time sources into clusters, picks
+the best cluster, then the best source in that cluster, for its time
+source.  By default, NTPsec requires 3 "sane" time sources before
+serving time.  This is set with the *minsane* option.  Not at all
+recommended, but you can force *ntpd* to rely sole on your PPS source by
+adjusting *minsane* like this in your ntp.conf:
+
+----
+tos minclock 1 minsane 1
+----
+
+Also note that after cold-starting ntpd it may calibrate for up to 15
 minutes before it starts adjusting the clock. Because the frequency
 error estimate ("drift") that NTP uses isn't right when you first
 start NTP, there will be a phase error that persists while the
@@ -1298,6 +1316,7 @@ filegen peerstats file peerstats type day enable
 
 This enables logging of the peer server statistics.
 
+[start=2]
 . Make sure the directory exists properly.  For ntpd as root do:
 
 -----------------------------------------------------------------------------
@@ -1305,6 +1324,7 @@ This enables logging of the peer server statistics.
    # chown ntp:ntp /var/log/ntpstats
 -----------------------------------------------------------------------------
 
+[start=3]
 . Start ntpd and let it run for at least four hours.
 Periodically check progress with "ntpq -p" and wait
 until change has settled out.
@@ -1426,6 +1446,7 @@ for its clock selection algorithm.  It will still write out statistics to
 the peerstats file.  Once ntpd is stable (a few hours or so), we can
 process the peerstats file.
 
+[start=2]
 . Measuring the delay between the two messages.
 
 From the 'peerstats' file, extract the lines corresponding to
@@ -1461,6 +1482,7 @@ satisfaction.)
         gnuplot> replot "peerstats.shm" using ($2):($5) with lines
 ------------------
 
+[start=3]
 . Applying the correction factor.
 
 By examining the plot generated above, you should be able to estimate
@@ -1563,12 +1585,13 @@ EEE Settings for eth0:
 	Link partner advertised EEE link modes:  Not reported
 # ethtool --set-eee eth0 eee off
 # ethtool --show-eee eth0
-EEE Settings for eth1:
+EEE Settings for eth0:
 	EEE status: disabled
-	Tx LPI: disabled
+	Tx LPI: 0 (us)
 	Supported EEE link modes:  100baseT/Full
 	                           1000baseT/Full
-	Advertised EEE link modes:  Not reported
+	Advertised EEE link modes:  100baseT/Full
+	                            100baseT/Full
 	Link partner advertised EEE link modes:  Not reported
 -----------------------------------------------------------------------------
 
@@ -1865,7 +1888,7 @@ by Jaap Winius <jwinius@rjsystems.nl>.
 
 - [[[GITLAB-SOURCE]]] https://gitlab.com/NTPsec/ntpsec[NTPSec source on Gitlab]
 
-== Changelog ==
+== Changelog
 
 1.1, Nov 2013::
       Initial release.
@@ -1925,4 +1948,13 @@ by Jaap Winius <jwinius@rjsystems.nl>.
 2.11 June 2019::
     Check all links, and update to https where possible
 
+2.12 January 2021::
+    Add Table of Contents.  Markup cleanup.
+
+November 2021:: Minor cleanup around timeservice=yes.
+
+== COPYING
+
+This file is Copyright 2013 by the GPSD project +
+SPDX-License-Identifier: BSD-2-clause
 // end

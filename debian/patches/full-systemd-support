@@ -1,9 +1,7 @@
 Debianize gpsd.service.in
-Index: pkg-gpsd/systemd/gpsd.service.in
-===================================================================
---- pkg-gpsd.orig/systemd/gpsd.service.in
-+++ pkg-gpsd/systemd/gpsd.service.in
-@@ -7,7 +7,6 @@ After=chronyd.service
+--- a/systemd/gpsd.service.in
++++ b/systemd/gpsd.service.in
+@@ -8,7 +8,6 @@ After=chronyd.service
  [Service]
  Type=forking
  EnvironmentFile=-/etc/default/gpsd
@@ -11,11 +9,9 @@ Index: pkg-gpsd/systemd/gpsd.service.in
  ExecStart=@SBINDIR@/gpsd $GPSD_OPTIONS $OPTIONS $DEVICES
  
  [Install]
-Index: pkg-gpsd/systemd/gpsdctl@.service.in
-===================================================================
---- pkg-gpsd.orig/systemd/gpsdctl@.service.in
-+++ pkg-gpsd/systemd/gpsdctl@.service.in
-@@ -8,7 +8,6 @@ After=dev-%i.device
+--- a/systemd/gpsdctl@.service.in
++++ b/systemd/gpsdctl@.service.in
+@@ -9,7 +9,6 @@ After=dev-%i.device
  Type=oneshot
  Environment="GPSD_SOCKET=@RUNDIR@/gpsd.sock"
  EnvironmentFile=-/etc/default/gpsd

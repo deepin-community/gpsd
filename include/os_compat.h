@@ -112,6 +112,14 @@ size_t strlcpy(char *dst, const char *src, size_t size);
 
 #endif /* !HAVE_STRLCPY */
 
+/* Provide strnlen() on platforms that don't have it */
+
+#ifndef HAVE_STRNLEN
+
+size_t strnlen(const char *s, size_t maxlen);
+
+#endif /* !HAVE_STRNLEN */
+
 /* Provide missing signal numbers for non-POSIX builds */
 
 #ifndef SIGHUP
@@ -127,11 +135,8 @@ size_t strlcpy(char *dst, const char *src, size_t size);
 #define O_NOCTTY   0400
 #endif
 
-/* Provide missing sincos() if needed */
-
-#ifndef HAVE_SINCOS
-void sincos(double x, double *sinp, double *cosp);
-#endif
+// getting scons to test for sincos() and pass -Werror not possible
+void gpsd_sincos(double x, double *sinp, double *cosp);
 
 # ifdef __cplusplus
 }

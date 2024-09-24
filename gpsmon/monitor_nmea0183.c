@@ -7,13 +7,13 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-#include "../include/gpsd_config.h"  /* must be before all includes */
+#include "../include/gpsd_config.h"   // must be before all includes
 
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <stdlib.h> /* for labs() */
+#include <stdlib.h>                   // for labs()
 #include <string.h>
 #include <unistd.h>
 
@@ -22,7 +22,6 @@
 #include "../include/gpsdclient.h"
 #include "../include/strfuncs.h"
 
-#ifdef NMEA0183_ENABLE
 extern const struct gps_type_t driver_nmea0183;
 
 static WINDOW *cookedwin, *nmeawin, *satwin, *gprmcwin;
@@ -235,15 +234,23 @@ static void monitor_satlist(WINDOW *win, int y, int x)
 
 /* sort the skyviews
  * Used = Y first, then used = N
- * then sort by PRN
+ * then sort by PRN, and sigid
  */
 static int sat_cmp(const void *p1, const void *p2)
 {
-   int ret = ((struct satellite_t*)p2)->used - ((struct satellite_t*)p1)->used;
+   int ret = ((const struct satellite_t*)p2)->used -
+              ((const struct satellite_t*)p1)->used;
    if (ret) {
         return ret;
    }
-   return ((struct satellite_t*)p1)->PRN - ((struct satellite_t*)p2)->PRN;
+   ret = ((const struct satellite_t*)p1)->PRN -
+          ((const struct satellite_t*)p2)->PRN;
+   if (ret) {
+        return ret;
+   }
+   ret = ((const struct satellite_t*)p1)->sigid -
+          ((const struct satellite_t*)p2)->sigid;
+   return ret;
 }
 
 static void nmea_update(void)
@@ -457,7 +464,6 @@ const struct monitor_object_t nmea_mmt = {
  *
  *****************************************************************************/
 
-#if defined(ASHTECH_ENABLE)
 static void monitor_nmea_send(const char *fmt, ...)
 {
     char buf[BUFSIZ];
@@ -468,7 +474,6 @@ static void monitor_nmea_send(const char *fmt, ...)
     va_end(ap);
     (void)monitor_control_send((unsigned char *)buf, strlen(buf));
 }
-#endif /* defined(ASHTECH_ENABLE) */
 
 /*
  * Yes, it's OK for most of these to be clones of the generic NMEA monitor
@@ -479,7 +484,7 @@ static void monitor_nmea_send(const char *fmt, ...)
  * display or implement device-specific commands.
  */
 
-#if defined(GARMIN_ENABLE) && defined(NMEA0183_ENABLE)
+#if defined(GARMIN_ENABLE)
 extern const struct gps_type_t driver_garmin;
 
 const struct monitor_object_t garmin_mmt = {
@@ -490,9 +495,8 @@ const struct monitor_object_t garmin_mmt = {
     .min_y = HEIGHT, .min_x = WIDTH,
     .driver = &driver_garmin,
 };
-#endif /* GARMIN_ENABLE && NMEA0183_ENABLE */
+#endif  // GARMIN_ENABLE
 
-#ifdef ASHTECH_ENABLE
 extern const struct gps_type_t driver_ashtech;
 
 #define ASHTECH_SPEED_9600 5
@@ -554,7 +558,6 @@ const struct monitor_object_t ashtech_mmt = {
     .min_y = HEIGHT, .min_x = WIDTH,
     .driver = &driver_ashtech,
 };
-#endif /* ASHTECH_ENABLE */
 
 #ifdef FV18_ENABLE
 extern const struct gps_type_t driver_fv18;
@@ -582,7 +585,6 @@ const struct monitor_object_t gpsclock_mmt = {
 };
 #endif /* GPSCLOCK_ENABLE */
 
-#ifdef MTK3301_ENABLE
 extern const struct gps_type_t driver_mtk3301;
 
 const struct monitor_object_t mtk3301_mmt = {
@@ -593,7 +595,6 @@ const struct monitor_object_t mtk3301_mmt = {
     .min_y = HEIGHT, .min_x = WIDTH,
     .driver = &driver_mtk3301,
 };
-#endif /* MTK3301_ENABLE */
 
 #ifdef AIVDM_ENABLE
 extern const struct gps_type_t driver_aivdm;
@@ -606,7 +607,6 @@ const struct monitor_object_t aivdm_mmt = {
     .min_y = HEIGHT, .min_x = WIDTH,
     .driver = &driver_aivdm,
 };
-#endif /* AIVDM_ENABLE */
-#endif /* NMEA0183_ENABLE */
+#endif  // AIVDM_ENABLE
 
 /* vim: set expandtab shiftwidth=4: */

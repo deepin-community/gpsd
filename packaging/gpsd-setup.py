@@ -13,7 +13,7 @@ except ImportError:  # No setuptools in Python 2
 
 setup(
     name='gps',
-    version='3.22',
+    version='3.25',
     description='gpsd Python modules for additional Pythons',
     long_description='''# README
 
@@ -33,7 +33,7 @@ This module is for additional Pythons.''',
     project_urls={
         'download': 'http://download-mirror.savannah.gnu.org/releases/gpsd/',
         'irc':      'irc://chat.freenode.net/#gpsd',
-        'issues':   'https://gitlab.com/gpsd/gpsd/issues',
+        'issues':   'https://gitlab.com/gpsd/gpsd/-/issues',
         'lists':    'https://lists.nongnu.org/mailman/listinfo/',
         'project':  'https://gitlab.com/gpsd/gpsd',
         'support':  'https://gpsd.io/SUPPORT.html',

@@ -1,7 +1,7 @@
 include:
  - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/salsa-ci.yml
  - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/pipeline-jobs.yml
- - https://bzed.pages.debian.net/reverse-dependency-ci/gpsd.yml
+ - https://salsa.debian.org/bbonev/pkg-gpsd/-/raw/master/debian/.salsa-ci/rdeps-gpsd.yaml
 
 variables:
  RELEASE: 'unstable'

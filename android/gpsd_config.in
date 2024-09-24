@@ -7,7 +7,7 @@
  */
 
 // Keep next 4 in sync with SConstruct
-#define VERSION "3.21.1~dev"
+#define VERSION "3.21.2~rc1"
 #define REVISION VERSION
 #define GPSD_PROTO_VERSION_MAJOR 3
 #define GPSD_PROTO_VERSION_MINOR 15
@@ -32,7 +32,6 @@
 #define HAVE_INET_NTOP 1
 #define HAVE_FCNTL 1
 #define HAVE_FORK 1
-#define ASHTECH_ENABLE 1
 #define CONTROL_SOCKET_ENABLE 1
 #define EARTHMATE_ENABLE 1
 #define EVERMORE_ENABLE 1
@@ -53,15 +52,10 @@
 #define LIBGPSMM_ENABLE 1
 #define MAX_CLIENTS 64
 #define MAX_DEVICES 4
-#define MTK3301_ENABLE 1
 #define NAVCOM_ENABLE 1
-#define NETFEED_ENABLE 1
-#define NMEA0183_ENABLE 1
-#define NTRIP_ENABLE 1
 #define OCEANSERVER_ENABLE 1
 #define ONCORE_ENABLE 1
 #define OSCILLATOR_ENABLE 1
-#define PASSTHROUGH_ENABLE 1
 #define QT_ENABLE 1
 #define RTCM104V2_ENABLE 1
 #define RTCM104V3_ENABLE 1

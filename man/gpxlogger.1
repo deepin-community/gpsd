@@ -1,153 +1,168 @@
 '\" t
 .\"     Title: gpxlogger
-.\"    Author: [see the "AUTHORS" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 6 December 2020
+.\"    Author: Amaury Jacquot, Petter Reinholdtsen, Chris Kuethe
+.\" Generator: Asciidoctor 2.0.18
+.\"      Date: 2023-01-10
 .\"    Manual: GPSD Documentation
-.\"    Source: The GPSD Project
+.\"    Source: GPSD, Version 3.25
 .\"  Language: English
 .\"
-.TH "GPXLOGGER" "1" "6 December 2020" "The GPSD Project" "GPSD Documentation"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.TH "GPXLOGGER" "1" "2023-01-10" "GPSD, Version 3.25" "GPSD Documentation"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
+.ss \n[.ss] 0
 .nh
-.\" disable justification (adjust text to left margin only)
 .ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
+.de URL
+\fI\\$2\fP <\\$1>\\$3
+..
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
 .SH "NAME"
 gpxlogger \- Tool to connect to gpsd and generate a GPX file
 .SH "SYNOPSIS"
-.HP \w'\fBgpxlogger\fR\ 'u
-\fBgpxlogger\fR [\-?] [\-\-daemonize] [\-\-debug\ \fIdebug\-level\fR] [\-\-export\ \fIexport\-method\fR] [\-\-exports] [\-\-help] [\-\-interval\fItrack\ timeout\fR] [\-\-minmove\ \fIminmove\fR] [\-\-output\ \fIfilename\fR] [\-\-version] [\-d] [\-D\ \fIdebug\-level\fR] [\-e\ \fIexport\-method\fR] [\-f\ \fIfilename\fR] [\-h] [\-i\ \fItrack\ timeout\fR] [\-l] [\-m\ \fIminmove\fR] [\-V] [\fIserver\fR [\fI:port\fR [\fI:device\fR]]]
+.sp
+\fBgpxlogger\fP [OPTIONS] [server[:port[:device]]]
+.sp
+\fBgpxlogger\fP \-h
+.sp
+\fBgpxlogger\fP \-V
 .SH "DESCRIPTION"
-.PP
-This program collects fixes from
-gpsd
-and logs them to standard output in GPX, an XML profile for track logging\&.
-.PP
-The output may be composed of multiple tracks\&. A new track is created if there\*(Aqs no fix written for an interval specified by the
-\fB\-i, \-\-interval\fR
-and defaulting to 5 seconds\&.
-.PP
-gpxlogger
-can use any of the export methods that
-gpsd
-supports\&. For a list of these methods, use the
-\fB\-l, \-\-exports\fR\&. To force the method, give the
-\fB\-e, \-\-export\fR
-one of the colon\-terminated method names from the
-\fB\-l, \-\-exports\fR
-table\&.
+.sp
+\fBgpslogger\fP program collects fixes from \fBgpsd\fP and logs them to standard output
+in GPX format, an XML profile for track logging.  It does not need
+to run as root, but can run as root.
+.sp
+The output may be composed of multiple tracks. A new track is created if
+there\(cqs no fix written for an interval specified by the
+\fB\-i\fP or \fB\-\-interval\fP option and defaulting to 5 seconds.
+.sp
+\fBgpxlogger\fP can use any of the export methods that \fBgpsd\fP supports. For
+a list of these methods, use the \fB\-l\fP or \fB\-\-exports\fP option. To force
+a method, give the \fB\-e\fP, \fB\-\-export\fP option folloed by one of the
+colon\-terminated method names from the \fB\-l\fP, \fB\-\-exports\fP table.
 .SH "OPTIONS"
-.PP
-\fB\-?\fR, \fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Print a summary of options and then exit\&.
-.RE
-.PP
-\fB\-d\fR, \fB\-\-daemonize\fR
-.RS 4
-Run as a daemon in background\&. It requires the
-\fB\-f, \-\-output\fR
-option, which directs output to a specified logfile\&.
-.RE
-.PP
-\fB\-D LVL\fR, \fB\-\-debug LVL\fR
-.RS 4
-Sets the debug level; it is primarily for troubleshooting\&. It enables various progress messages to standard error\&.
-.RE
-.PP
-\fB\-e METHOD\fR, \fB\-\-export METHOD\fR
-.RS 4
-If D\-Bus support is available on the host, GPSD is configured to use it, and
-\fB\-e dbus, \-\-export dbus\fR
-is specified, this program listens to DBUS broadcasts from
-gpsd
-via org\&.gpsd\&.fix\&.
 .sp
-With
-\fB\-e sockets\fR, or if sockets is the method defaulted to, you may give a server\-port\-device specification as arguments\&.
-.sp
-The sockets default is to all devices on the localhost, using the default GPSD port 2947\&. An optional argument to any client may specify a server to get data from\&. A colon\-separated suffix is taken as a port number\&. If there is a second colon\-separated suffix, that is taken as a specific device name to be watched\&. However, if the server specification contains square brackets, the part inside them is taken as an IPv6 address and port/device suffixes are only parsed after the trailing bracket\&. Possible cases look like this:
-.PP
-localhost:/dev/ttyS1
+\fB\-?\fP, \fB\-h\fP, \fB\-\-help\fP
 .RS 4
-Look at the default port of localhost, trying both IPv4 and IPv6 and watching output from serial device 1\&.
-.RE
-.PP
-example\&.com:2317
-.RS 4
-Look at port 2317 on example\&.com, trying both IPv4 and IPv6\&.
-.RE
-.PP
-71\&.162\&.241\&.5:2317:/dev/ttyS3
-.RS 4
-Look at port 2317 at the specified IPv4 address, collecting data from attached serial device 3\&.
-.RE
-.PP
-[FEDC:BA98:7654:3210:FEDC:BA98:7654:3210]:2317:/dev/ttyS5
-.RS 4
-Look at port 2317 at the specified IPv6 address, collecting data from attached serial device 5\&.
+Print a summary of options and then exit.
 .RE
 .sp
-With
-\fB\-e shm, \-\-export shm\fR
-this program will listen to the local
-gpsd
-using shared memory\&.
-.RE
-.PP
-\fB\-i SECONDS\fR, \fB\-\-interval SECONDS\fR
+\fB\-d\fP, \fB\-\-daemonize\fP
 .RS 4
-A new track is created if there\*(Aqs no fix written for an interval of SECONDS\&. Defaulting to 5 seconds\&.
+Run as a daemon in background. It requires the \fB\-f, \-\-output\fP
+option, which directs output to a specified logfile.
 .RE
-.PP
-\fB\-l\fR, \fB\-\-exports\fR
+.sp
+\fB\-D LVL\fP, \fB\-\-debug LVL\fP
 .RS 4
-List all possible options for
-\fB\-e, \-\-export\fR\&.
+Sets the debug level, it is primarily for troubleshooting. It enables
+various progress messages to standard error.
 .RE
-.PP
-\fB\-m MINMOVE\fR, \fB\-\-minmove MINMOVE\fR
+.sp
+\fB\-e METHOD\fP, \fB\-\-export METHOD\fP
 .RS 4
-Sets a minimum move distance in meters (it may include a fractional decimal part)\&. Motions shorter than this will not be logged\&.
+If D\-Bus support is available on the host, GPSD is configured to use
+it, and \fB\-e dbus\fP, or \fB\-\-export dbus\fP is specified, this program
+listens to DBUS broadcasts from \fBgpsd\fP via org.gpsd.fix.
+.sp
+With \fB\-e sockets\fP, or if sockets is the method defaulted to, you may
+give a [server[:port[:device]]] specification as arguments.  See the
+\fBARGUMENTS\fP section below for more details.
+.sp
+With \fB\-e shm, \-\-export shm\fP this program will listen to the local
+\fBgpsd\fP using shared memory.
 .RE
-.PP
-\fB\-r\fR, \fB\-\-reconnect\fR
+.sp
+\fB\-F INFILE\fP, \fB\-\-filein INFILE\fP
 .RS 4
-Retry when GPSd loses the fix\&. Without
-\fB\-r\fR,
-gpxlogger
-would quit in this case\&.
+Read \fBgpsd\fP JSON from file INFILE, instead of from a \fBgpsd\fP daemon.
 .RE
-.PP
-\fB\-V\fR, \fB\-\-version\fR
+.sp
+\fB\-g\fP, \fB\-\-garmin\fP
 .RS 4
-Dump the package version and exit\&.
+Enable Garmin extensions to GPX format.  This allows depth to also
+be logged in the gpx output.  Not compatible with Google maps.
+.RE
+.sp
+\fB\-i SECONDS\fP, \fB\-\-interval SECONDS\fP
+.RS 4
+A new track is created if there\(cqs no fix written for an interval of
+SECONDS. Defaulting to 5 seconds.
+.RE
+.sp
+\fB\-l\fP, \fB\-\-exports\fP
+.RS 4
+List all possible options for \fB\-e, \-\-export\fP.
+.RE
+.sp
+\fB\-m MINMOVE\fP, \fB\-\-minmove MINMOVE\fP
+.RS 4
+Sets a minimum move distance in meters (it may include a fractional
+decimal part). Motions shorter than this will not be logged.
+.RE
+.sp
+\fB\-o OUTFILE\fP, \fB\-\-output OUTFILE\fP
+.RS 4
+Output the GPX logg to file file OUTFILE, instead of to stdout..
+.RE
+.sp
+\fB\-r\fP, \fB\-\-reconnect\fP
+.RS 4
+Retry when GPSd loses the fix. Without \fB\-r\fP, \fBgpxlogger\fP would quit in
+this case.
+.RE
+.sp
+\fB\-V\fP, \fB\-\-version\fP
+.RS 4
+Dump the package version and exit.
+.RE
+.SH "ARGUMENTS"
+.sp
+By default, clients collect data from the local \fBgpsd\fP daemon running
+on localhost, using the default GPSD port 2947. The optional argument
+to any client may override this behavior: \fB[server[:port[:device]]]\fP
+.sp
+For further explanation, and examples, see the \fBARGUMENTS\fP section in
+the \fBgps\fP(1) man page
+.SH "RETURN VALUES"
+.sp
+\fB0\fP
+.RS 4
+on success.
+.RE
+.sp
+\fB1\fP
+.RS 4
+on failure
 .RE
 .SH "SEE ALSO"
-.PP
-\fBgpsd\fR(8),
-\fBgps\fR(1)
-\fBgpspipe\fR(1)
+.sp
+\fBgps\fP(1)
+.sp
+\fBgpsd\fP(8)
+.SH "RESOURCES"
+.sp
+\fBProject web site:\fP \c
+.URL "https://gpsd.io/" "" ""
+.SH "COPYING"
+.sp
+This file is Copyright 2013 by the GPSD project
+.br
+SPDX\-License\-Identifier: BSD\-2\-clause
 .SH "AUTHORS"
-.PP
+.sp
 Amaury Jacquot
-<sxpert@sxpert\&.org>
-& Petter Reinholdtsen
-<pere@hungry\&.com>
-& Chris Kuethe
-<chris\&.kuethe@gmail\&.com>
+.sp
+Petter Reinholdtsen
+.sp
+Chris Kuethe

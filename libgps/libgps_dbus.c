@@ -3,8 +3,11 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-#include "../include/gpsd_config.h"  /* must be before all includes */
+#include "../include/gpsd_config.h"   // must be before all includes
 
+#if defined(DBUS_EXPORT_ENABLE)
+
+#include <dbus/dbus.h>
 #include <errno.h>
 #include <libgen.h>
 #include <math.h>
@@ -13,21 +16,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
 
 #include "../include/gps.h"
 #include "../include/libgps.h"
+#include "../include/os_compat.h"
+#include "../include/timespec.h"
 
-#if defined(DBUS_EXPORT_ENABLE)
-#include <syslog.h>
 
-struct privdata_t
-{
-    void (*handler)(struct gps_data_t *);
-};
-
-#include <dbus/dbus.h>
 
 /*
  * Unpleasant that we have to declare a static context pointer here - means
@@ -42,12 +40,13 @@ static DBusHandlerResult handle_gps_fix(DBusMessage * message)
 {
     DBusError error;
     const char *gpsd_devname = NULL;
+    double fix_time;
 
     dbus_error_init(&error);
 
     dbus_message_get_args(message,
                           &error,
-                          DBUS_TYPE_DOUBLE, &share_gpsdata->fix.time,
+                          DBUS_TYPE_DOUBLE, &fix_time,
                           DBUS_TYPE_INT32, &share_gpsdata->fix.mode,
                           DBUS_TYPE_DOUBLE, &share_gpsdata->fix.ept,
                           DBUS_TYPE_DOUBLE, &share_gpsdata->fix.latitude,
@@ -65,10 +64,14 @@ static DBusHandlerResult handle_gps_fix(DBusMessage * message)
                           DBUS_TYPE_DOUBLE, &share_gpsdata->fix.epc,
                           DBUS_TYPE_STRING, &gpsd_devname, DBUS_TYPE_INVALID);
 
-    if (share_gpsdata->fix.mode > MODE_NO_FIX )
-        share_gpsdata->fix.status = STATUS_FIX;
-    else
-        share_gpsdata->fix.status = STATUS_NO_FIX;
+    // convert time as double back to timespec_t, potential loss of precision.
+    DTOTS(&share_gpsdata->fix.time, fix_time);
+
+    if (MODE_NO_FIX < share_gpsdata->fix.mode) {
+        share_gpsdata->fix.status = STATUS_GPS;
+    } else {
+        share_gpsdata->fix.status = STATUS_UNK;
+    }
 
     dbus_error_free(&error);
 
@@ -97,9 +100,11 @@ int gps_dbus_open(struct gps_data_t *gpsdata)
 {
     DBusError error;
 
-    gpsdata->privdata = (void *)malloc(sizeof(struct privdata_t));
-    if (gpsdata->privdata == NULL)
+    gpsdata->privdata =
+        (struct privdata_t *)calloc(1, sizeof(struct privdata_t));
+    if (NULL == gpsdata->privdata) {
         return -1;
+    }
 
     dbus_error_init(&error);
     connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
@@ -128,25 +133,54 @@ int gps_dbus_open(struct gps_data_t *gpsdata)
     gpsdata->gps_fd = DBUS_PSEUDO_FD;
 #else
     gpsdata->gps_fd = (void *)(intptr_t)DBUS_PSEUDO_FD;
-#endif /* USE_QT */
+#endif  // USE_QT
     share_gpsdata = gpsdata;
     return 0;
 }
 
+/* run a DBUS main loop with a specified handler
+ *
+ * timeout is in micro seconds
+ *
+ * Returns: -1 on timeout
+ *          -2 on error or disconnect
+ * FIXME: read error should return different than timeout
+ */
 int gps_dbus_mainloop(struct gps_data_t *gpsdata,
                        int timeout,
                        void (*hook)(struct gps_data_t *))
-/* run a DBUS main loop with a specified handler */
 {
+    struct timespec ts_from, ts_to;
+    double d_timeout;
+
+    d_timeout = (double)timeout / 1000000;  // timeout in seconds
     share_gpsdata = gpsdata;
     PRIVATE(share_gpsdata)->handler = (void (*)(struct gps_data_t *))hook;
-    for (;;)
-        if (TRUE != dbus_connection_read_write_dispatch(connection,
-                                                        (int)(timeout/1000))) {
+    for (;;) {
+        bool status;
+        double diff;
+
+        if (0 != clock_gettime(CLOCK_REALTIME, &ts_from)) {
+            return -2;
+        }
+
+        status = dbus_connection_read_write_dispatch(connection,
+                                                     (int)(timeout/1000));
+        if (FALSE == status) {
+            // lost connection
+            break;
+        }
+        if (0 != clock_gettime(CLOCK_REALTIME, &ts_to)) {
+            return -2;
+        }
+        diff = TS_SUB_D(&ts_to, &ts_from);
+        if (d_timeout <= diff) {
+            // timeout
             return -1;
         }
-    return 0;
+    }
+    return -2;
 }
 
-#endif /* defined(DBUS_EXPORT_ENABLE) */
+#endif  // defined(DBUS_EXPORT_ENABLE)
 // vim: set expandtab shiftwidth=4

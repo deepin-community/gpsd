@@ -1,0 +1,2 @@
+# These are false positives
+gpsd-tools: spelling-error-in-binary Lon Long [usr/bin/gpsmon]

@@ -148,8 +148,8 @@ static int gar_decode(const struct gps_context_t *context,
 {
     char buf[10];
     float sign = 1.0;
-    int preflen = (int)strlen(prefix);
-    int offset = 1;      /* assume one character prefix (E,W,S,N,U,D, etc) */
+    int preflen = (int)strnlen(prefix, 3);
+    int offset = 1;      // assume one character prefix (E,W,S,N,U,D, etc)
     long int intresult;
 
     if (length >= sizeof(buf)) {
@@ -327,7 +327,7 @@ gps_mask_t garmintxt_parse(struct gps_device_t * session)
     /* assume that position is unknown; if the position is known we
      * will fix status information later */
     session->newdata.mode = MODE_NO_FIX;
-    session->newdata.status = STATUS_NO_FIX;
+    session->newdata.status = STATUS_UNK;
     mask |= MODE_SET | STATUS_SET | CLEAR_IS | REPORT_IS;
 
     /* process position */
@@ -377,23 +377,23 @@ gps_mask_t garmintxt_parse(struct gps_device_t * session)
         case 'G':
         case 'S':               /* 'S' is DEMO mode, assume 3D position */
             session->newdata.mode = MODE_3D;
-            session->newdata.status = STATUS_FIX;
+            session->newdata.status = STATUS_GPS;
             break;
         case 'D':
             session->newdata.mode = MODE_3D;
-            session->newdata.status = STATUS_DGPS_FIX;
+            session->newdata.status = STATUS_DGPS;
             break;
         case 'g':
             session->newdata.mode = MODE_2D;
-            session->newdata.status = STATUS_FIX;
+            session->newdata.status = STATUS_GPS;
             break;
         case 'd':
             session->newdata.mode = MODE_2D;
-            session->newdata.status = STATUS_DGPS_FIX;
+            session->newdata.status = STATUS_DGPS;
             break;
         default:
             session->newdata.mode = MODE_NO_FIX;
-            session->newdata.status = STATUS_NO_FIX;
+            session->newdata.status = STATUS_UNK;
         }
         mask |= MODE_SET | STATUS_SET | LATLON_SET;
     } while (0);

@@ -1,7 +1,7 @@
 %global _hardened_build 1
 
 Name: gpsd
-Version: 3.22
+Version: 3.25
 Release: 0%{?dist}
 Summary: Service daemon for mediating access to a GPS
 
@@ -9,7 +9,7 @@ License: BSD
 URL: https://gpsd.io/
 Source0: http://download-mirror.savannah.gnu.org/releases/gpsd/%{name}-%{version}.tar.xz
 
-BuildRequires:  dbus-devel dbus-glib-devel ncurses-devel xmlto python3-devel
+BuildRequires:  dbus-devel dbus-glib-devel ncurses-devel asciidoctor python3-devel
 BuildRequires:  python3-scons  desktop-file-utils bluez-libs-devel /usr/bin/c++
 BuildRequires:  pps-tools-devel systemd
 BuildRequires:  qt-devel
@@ -181,11 +181,17 @@ desktop-file-install \
 %doc /usr/share/doc/NEWS
 %doc /usr/share/doc/README.adoc
 %doc /usr/share/doc/build.adoc
+%doc /usr/share/doc/SUPPORT.adoc
+%doc /usr/share/doc/example1.c.txt
+%doc /usr/share/doc/example2.py.txt
+%doc /usr/share/snmp/mibs/gpsd/GPSD-MIB
 %config(noreplace) %{_sysconfdir}/sysconfig/%{name}
 %{_sbindir}/gpsd
 %{_sbindir}/gpsdctl
 %{_sbindir}/gpsinit
+%{_bindir}/gpsdebuginfo
 %{_bindir}/gpsmon
+%{_bindir}/gpssnmp
 %{_bindir}/gpsctl
 %{_bindir}/ntpshmmon
 %{_bindir}/ppscheck
@@ -195,7 +201,9 @@ desktop-file-install \
 %{_udevrulesdir}/*.rules
 %{_mandir}/man8/gpsd.8*
 %{_mandir}/man8/gpsdctl.8*
+%{_mandir}/man1/gpsdebuginfo.1.gz
 %{_mandir}/man8/gpsinit.8*
+%{_mandir}/man1/gpssnmp.1.gz
 %{_mandir}/man8/ppscheck.8*
 %{_mandir}/man1/gpsmon.1*
 %{_mandir}/man1/gpsctl.1*

@@ -78,11 +78,6 @@ MAXCHANNELS = 120
 # MAXCHANDISP, default max channels to display
 MAXCHANDISP = 28
 
-# how to sort the Satellite List
-# some of ("PRN","el","az","ss","used") with optional '-' to reverse sort
-# by default, used at the top, then sort PRN
-SKY_VIEW_SORT_FIELDS = ('-used', 'PRN')
-
 # Each GNSS constellation reuses the same PRNs.  To differentiate they are
 # all mushed into the PRN.  Different GPS mush differently.  gpsd should
 # have untangled and put in gnssid:svid
@@ -119,10 +114,10 @@ def gnssid_str(sat):
 
 def fit_to_grid(x, y, line_width):
     """Adjust coordinates to produce sharp lines."""
-    if line_width % 1.0 != 0:
+    if 0 != line_width % 1.0:
         # Can't have sharp lines for non-integral line widths.
         return float(x), float(y)  # Be consistent about returning floats
-    if line_width % 2 == 0:
+    if 0 == line_width % 2:
         # Round to a pixel corner.
         return round(x), round(y)
 
@@ -185,7 +180,7 @@ class SkyView(Gtk.DrawingArea):
                 # got a sat match under the mouse
                 # print((x, y))
                 if ((self.pop_xy[0] and self.pop_xy[1] and
-                     self.pop_xy == (int(x), int(y)))):
+                     (int(x), int(y)) == self.pop_xy)):
                     # popup already up here, ignore event
                     # print("(%d, %d)" % (x, y))
                     return
@@ -201,9 +196,62 @@ class SkyView(Gtk.DrawingArea):
                 if "gnssid" in sat and "svid" in sat:
                     # gnssid:svid in gpsd 3.18 and up
                     constellation = gnssid_str(sat)[1]
-                    gnss_str = "%-8s  %4d\n" % (constellation, sat.svid)
+                    gnss_str = "%-8s     %4d\n" % (constellation, sat.svid)
                 else:
                     gnss_str = ''
+
+                prres_str = ''
+                sig_str = ''
+                snr_str = ''
+                qual_str = ''
+                use_str = ''
+
+                for (x1, y1, sat1) in self.sat_xy:
+                    # find all instances of this sat
+
+                    if ((sat1["gnssid"] != sat["gnssid"] or
+                         sat1["svid"] != sat["svid"])):
+                        # not this one
+                        continue
+
+                    if "prRes" in sat1:
+                        prres = "%4.1f" % sat1.prRes
+                    else:
+                        prres = "    "
+                    if prres_str:
+                        prres_str += ", " + prres
+                    else:
+                        prres_str = prres
+
+                    if "sigid" in sat1:
+                        sig = "%4d" % sat1.sigid
+                    else:
+                        sig = "   0"
+                    if sig_str:
+                        sig_str += ", " + sig
+                    else:
+                        sig_str = sig
+
+                    snr = "%4.1f" % sat1.ss
+                    if snr_str:
+                        snr_str += ", " + snr
+                    else:
+                        snr_str = snr
+
+                    if "qual" in sat1:
+                        qual = "%3d" % sat1.qual
+                    else:
+                        qual = "   "
+                    if qual_str:
+                        qual_str += ", " + qual
+                    else:
+                        qual_str = qual
+
+                    use = "Yes" if sat.used else "No"
+                    if use_str:
+                        use_str += ", " + use
+                    else:
+                        use_str = use
 
                 if 'health' not in sat:
                     health = "Unk"
@@ -215,16 +263,18 @@ class SkyView(Gtk.DrawingArea):
                     health = "Unk"
 
                 label = Gtk.Label()
-                s = ("<span font_desc='monospace 10'>PRN %10d\n"
+                s = ("<span font_desc='monospace 10'>PRN %13d\n"
                      "%s"
-                     "Elevation %4.1f\n"
-                     "Azimuth  %5.1f\n"
-                     "SNR       %4.1f\n"
-                     "Used %9s\n"
-                     "Health %7s</span>" %
-                     (sat.PRN, gnss_str,
-                      sat.el, sat.az, sat.ss, 'Yes' if sat.used else 'No',
-                      health))
+                     "Elevation    %4.1f\n"
+                     "Azimuth     %5.1f\n"
+                     "sigId  %9s\n"
+                     "SNR   %11s\n"
+                     "prRes %11s\n"
+                     "Quality  %7s\n"
+                     "Health  %9s\n"
+                     "Used  %11s</span>" %
+                     (sat.PRN, gnss_str, sat.el, sat.az, sig_str, snr_str,
+                      prres_str, qual_str, health, use_str))
                 label.set_markup(s)
                 rectangle = Gdk.Rectangle()
                 rectangle.x = x - 25
@@ -401,7 +451,7 @@ class SkyView(Gtk.DrawingArea):
         self.draw_circle(self.center_x, self.center_y, 6, filled=False)
 
         # The horizon circle
-        if self.step_of_grid == 45:
+        if 45 == self.step_of_grid:
             # The circle corresponding to 45 degrees elevation.
             # There are two ways we could plot this.  Projecting the sphere
             # on the display plane, the circle would have a diameter of
@@ -409,7 +459,7 @@ class SkyView(Gtk.DrawingArea):
             # the horizon diameter in half, seems to work better visually.
             self.draw_circle(self.center_x, self.center_y, self.radius / 2,
                              filled=False)
-        elif self.step_of_grid == 30:
+        elif 30 == self.step_of_grid:
             self.draw_circle(self.center_x, self.center_y, self.radius * 2 / 3,
                              filled=False)
             self.draw_circle(self.center_x, self.center_y, self.radius / 3,
@@ -459,21 +509,22 @@ class SkyView(Gtk.DrawingArea):
             # low probability of excluding legitimate cases, while avoiding
             # the improper display in this case.
             # Note that this only excludes them from the map, not the list.
-            if sat.az == 0 and sat.el == 0:
+            if ((0 == sat.az and
+                 0 == sat.el)):
                 continue
 
             (x, y) = self.pol2cart(sat.az, sat.el)
             # colorize by signal to noise ratio
             # RINEX 3 uses 9 steps: 1 to 9.  Corresponding to
             # <12, 12-17, 18-23, 24-29, 30-35, 36-41, 42-47, 48-53, >= 54
-            if sat.ss < 12:
+            if 12 > sat.ss:
                 self.set_color(190, 190, 190)      # gray
-            elif sat.ss < 30:
+            elif 30 > sat.ss:
                 self.set_color(255, 0, 0)          # red
-            elif sat.ss < 36:
+            elif 36 > sat.ss:
                 # RINEX 3 says 30 is "threshold for good tracking"
                 self.set_color(255, 255, 0)        # yellow
-            elif sat.ss < 42:
+            elif 42 > sat.ss:
                 self.set_color(0, 205, 0)          # green3
             else:
                 self.set_color(0, 255, 180)        # green and some blue
@@ -482,15 +533,15 @@ class SkyView(Gtk.DrawingArea):
             constellation = gnssid_str(sat)[0]
             if constellation in ('GP', '  '):
                 self.draw_circle(x, y, SkyView.SAT_RADIUS, sat.used)
-            elif constellation == 'SB':
+            elif 'SB' == constellation:
                 self.draw_square(x, y, SkyView.SAT_RADIUS, sat.used, 0)
-            elif constellation == 'GA':
+            elif 'GA' == constellation:
                 self.draw_triangle(x, y, SkyView.SAT_RADIUS, sat.used, 0)
-            elif constellation == 'BD':
+            elif 'BD' == constellation:
                 self.draw_triangle(x, y, SkyView.SAT_RADIUS, sat.used, 1)
-            elif constellation == 'GL':
+            elif 'GL' == constellation:
                 self.draw_square(x, y, SkyView.SAT_RADIUS, sat.used, 1)
-            elif constellation == 'QZ':
+            elif 'QZ' == constellation:
                 self.draw_triangle(x, y, SkyView.SAT_RADIUS, sat.used, 2)
             else:
                 # IRNSS, IMES, unknown or other
@@ -509,54 +560,6 @@ class SkyView(Gtk.DrawingArea):
         """Redraw the skyview."""
         self.satellites = satellites
         self.queue_draw()
-
-
-class NoiseView(object):
-
-    """Encapsulate view object for watching noise statistics."""
-    COLUMNS = 2
-    ROWS = 4
-    noisefields = (
-        # First column
-        ("Time", "time"),
-        ("Latitude", "lat"),
-        ("Longitude", "lon"),
-        ("Altitude", "alt"),
-        # Second column
-        ("RMS", "rms"),
-        ("Major", "major"),
-        ("Minor", "minor"),
-        ("Orient", "orient"),
-    )
-
-    def __init__(self):
-        """Initialize class NoiseView."""
-        self.widget = Gtk.Grid()
-        self.noisewidgets = []
-        for i in range(len(NoiseView.noisefields)):
-            colbase = (i // NoiseView.ROWS) * 2
-            label = Gtk.Label()
-            label.set_markup("<span font_desc='sans 10'> %s:</span>" %
-                             NoiseView.noisefields[i][0])
-            # force right alignment
-            label.set_halign(Gtk.Align.END)
-            self.widget.attach(label, colbase, i % NoiseView.ROWS, 1, 1)
-            entry = Gtk.Label()
-            # span gets lost later
-            entry.set_markup("<span font_desc='monospace 10'> n/a </span>")
-            self.widget.attach_next_to(entry, label,
-                                       Gtk.PositionType.RIGHT, 1, 1)
-            self.noisewidgets.append((NoiseView.noisefields[i][1], entry))
-
-    def update(self, noise):
-        """Update the GPGST data fields."""
-        markup = "<span font_desc='monospace 10'>%s </span>"
-        for (attrname, widget) in self.noisewidgets:
-            if hasattr(noise, attrname):
-                s = str(getattr(noise, attrname))
-            else:
-                s = " n/a "
-            widget.set_markup(markup % s)
 
 
 class AISView(object):
@@ -612,16 +615,16 @@ class AISView(object):
 
     def latlon(self, lat, lon):
         """Latitude/longitude display in nice format."""
-        if lat < 0:
+        if 0 > lat:
             latsuff = "S"
-        elif lat > 0:
+        elif 0 < lat:
             latsuff = "N"
         else:
             latsuff = ""
         lat = gps.clienthelpers.deg_to_str(self.deg_type, lat)
-        if lon < 0:
+        if 0 > lon:
             lonsuff = "W"
-        elif lon > 0:
+        elif 0 < lon:
             lonsuff = "E"
         else:
             lonsuff = ""
@@ -640,18 +643,18 @@ class AISView(object):
                         if mmsi == ais.mmsi:
                             latlon = self.latlon(ais.lat, ais.lon)
                             self.store.set_value(here, 4, latlon)
-        elif ais.type == 4:
+        elif 4 == ais.type:
             if self.enter(ais, ais.mmsi):
                 where = self.latlon(ais.lat, ais.lon)
                 self.store.prepend(
                     (ais.type, str(ais.mmsi), "(shore)", ais.timestamp, where,
                      ais.epfd_text))
-        elif ais.type == 5:
+        elif 5 == ais.type:
             if self.enter(ais, ais.shipname):
                 self.store.prepend(
                     (ais.type, ais.shipname, ais.callsign, ais.destination,
                      "", str(ais.shiptype)))
-        elif ais.type == 12:
+        elif 12 == ais.type:
             sender = ais.mmsi
             if sender in self.named:
                 sender = self.named[sender].shipname
@@ -661,7 +664,7 @@ class AISView(object):
                 recipient = self.named[recipient].shipname
             self.store.prepend(
                 (ais.type, sender, "", recipient, "", ais.text))
-        elif ais.type == 14:
+        elif 14 == ais.type:
             sender = ais.mmsi
             if sender in self.named:
                 sender = self.named[sender].shipname
@@ -672,12 +675,183 @@ class AISView(object):
                 self.store.prepend(
                     (ais.type, ais.shipname, "(class B)", "", "",
                      ais.shiptype_text))
-        elif ais.type == 21:
+        elif 21 == ais.type:
             if self.enter(ais, ais.name):
                 where = self.latlon(ais.lat, ais.lon)
                 self.store.prepend(
                     (ais.type, ais.name, "(%s navaid)" % ais.epfd_text,
                      "", where, ais.aid_type_text))
+
+
+class IMUView(object):
+
+    """Encapsulate view object for watching ATT/IMU data."""
+    COLUMNS = 4
+    ROWS = 4
+    imufields = (
+        # First column
+        ("timeTag", "timeTag"),
+        ("Acc x", "acc_x"),
+        ("Acc y", "acc_y"),
+        ("Acc z", "acc_z"),
+        # Second column
+        ("Gyro t", "gyro_temp"),
+        ("Gyro x", "gyro_x"),
+        ("Gyro y", "gyro_y"),
+        ("Gyro z", "gyro_z"),
+        # third column
+        ("Heading", "heading"),
+        ("Pitch", "pitch"),
+        ("Roll", "roll"),
+        ("Yaw", "yaw"),
+        # fourth column
+        ("time", "time"),
+        ("Mag x", "mag_x"),
+        ("Mag y", "mag_y"),
+        ("Mag z", "mag_z"),
+    )
+
+    def __init__(self):
+        """Initialize class IMUView."""
+        self.widget = Gtk.Grid()
+        self.imuwidgets = []
+        for i in range(len(IMUView.imufields)):
+            colbase = (i // IMUView.ROWS) * 2
+            # attribute / label
+            label = Gtk.Label()
+            label.set_markup("<span font_desc='sans 10'> %s:</span>" %
+                             IMUView.imufields[i][0])
+            # force right alignment
+            label.set_halign(Gtk.Align.END)
+            self.widget.attach(label, colbase, i % IMUView.ROWS, 1, 1)
+            # value
+            entry = Gtk.Label()
+            entry.set_xalign(1)            # right align data
+            # span gets lost later
+            entry.set_markup("<span font_desc='monospace 10'> n/a </span>")
+            entry.set_width_chars(10)
+            self.widget.attach_next_to(entry, label,
+                                       Gtk.PositionType.RIGHT, 1, 1)
+            self.imuwidgets.append((IMUView.imufields[i][1], entry))
+
+    def update(self, msg):
+        """Update the IMU data fields."""
+        markup = "<span font_desc='monospace 10'>%s </span>"
+        for (attrname, widget) in self.imuwidgets:
+            if hasattr(msg, attrname):
+                s = str(getattr(msg, attrname))
+            elif 'time' == attrname:
+                s = "                    n/a "
+            else:
+                s = " n/a "
+            widget.set_markup(markup % s)
+
+
+class NoiseView(object):
+
+    """Encapsulate view object for watching noise statistics."""
+    COLUMNS = 2
+    ROWS = 4
+    noisefields = (
+        # First column
+        ("Time", "time"),
+        ("Latitude", "lat"),
+        ("Longitude", "lon"),
+        ("Altitude", "alt"),
+        # Second column
+        ("RMS", "rms"),
+        ("Major", "major"),
+        ("Minor", "minor"),
+        ("Orient", "orient"),
+    )
+
+    def __init__(self):
+        """Initialize class NoiseView."""
+        self.widget = Gtk.Grid()
+        self.noisewidgets = []
+        for i in range(len(NoiseView.noisefields)):
+            colbase = (i // NoiseView.ROWS) * 2
+            label = Gtk.Label()
+            label.set_markup("<span font_desc='sans 10'> %s:</span>" %
+                             NoiseView.noisefields[i][0])
+            # force right alignment
+            label.set_halign(Gtk.Align.END)
+            self.widget.attach(label, colbase, i % NoiseView.ROWS, 1, 1)
+            entry = Gtk.Label()
+            # span gets lost later
+            entry.set_markup("<span font_desc='monospace 10'> n/a </span>")
+            self.widget.attach_next_to(entry, label,
+                                       Gtk.PositionType.RIGHT, 1, 1)
+            self.noisewidgets.append((NoiseView.noisefields[i][1], entry))
+
+    def update(self, noise):
+        """Update the GPGST data fields."""
+        markup = "<span font_desc='monospace 10'>%s </span>"
+        for (attrname, widget) in self.noisewidgets:
+            if hasattr(noise, attrname):
+                s = str(getattr(noise, attrname))
+            else:
+                s = " n/a "
+            widget.set_markup(markup % s)
+
+
+class RTKView(object):
+
+    """Encapsulate view object for watching ATT/RTK data."""
+    COLUMNS = 3
+    ROWS = 4
+    rtkfields = (
+        # First column
+        ("Heading", "heading"),
+        ("Pitch", "pitch"),
+        ("Roll", "roll"),
+        ("Yaw", "yaw"),
+        # second column
+        ("Base Course", "baseC"),
+        ("Base East", "baseE"),
+        ("Base North", "baseN"),
+        ("Base up", "baseU"),
+        # third column
+        ("time", "time"),
+        ("Base Status", "baseS"),
+        ("Base Length", "baseL"),
+        ("", "XX"),
+    )
+
+    def __init__(self):
+        """Initialize class RTKView."""
+        self.widget = Gtk.Grid()
+        self.rtkwidgets = []
+        for i in range(len(RTKView.rtkfields)):
+            colbase = (i // RTKView.ROWS) * 2
+            # attribute / label
+            label = Gtk.Label()
+            label.set_markup("<span font_desc='sans 10'> %s:</span>" %
+                             RTKView.rtkfields[i][0])
+            # force right alignment
+            label.set_halign(Gtk.Align.END)
+            self.widget.attach(label, colbase, i % RTKView.ROWS, 1, 1)
+            # value
+            entry = Gtk.Label()
+            entry.set_xalign(1)            # right align data
+            # span gets lost later
+            entry.set_markup("<span font_desc='monospace 10'> n/a </span>")
+            entry.set_width_chars(10)
+            self.widget.attach_next_to(entry, label,
+                                       Gtk.PositionType.RIGHT, 1, 1)
+            self.rtkwidgets.append((RTKView.rtkfields[i][1], entry))
+
+    def update(self, msg):
+        """Update the RTK data fields."""
+        markup = "<span font_desc='monospace 10'>%s </span>"
+        for (attrname, widget) in self.rtkwidgets:
+            if hasattr(msg, attrname):
+                s = str(getattr(msg, attrname))
+            elif 'time' == attrname:
+                s = "                    n/a "
+            else:
+                s = " n/a "
+            widget.set_markup(markup % s)
 
 
 class Base(object):
@@ -750,12 +924,23 @@ class Base(object):
 
     def __init__(self, deg_type, rotation=None, title=""):
         """Initialize class Base."""
+        self.old_sats = ['n/a', 'n/a']
         self.deg_type = deg_type
         self.rotate = rotation
         self.conversions = gps.clienthelpers.unit_adjustments()
         self.saved_mode = -1
+        # Flag to turn on AISView if we see AIS, once
         self.ais_latch = False
+        # Flag to turn on ATT if we see ATT, once
+        self.att_latch = False
+        # Flag to turn on IMU MEAS if we see IMU MEAS, once
+        self.imumeas_latch = False
+        # Flag to turn on IMU RAW if we see IMU RAW, once
+        self.imuraw_latch = False
+        # Flag to turn on MoiseView if we see GST, once
         self.noise_latch = False
+        # Flag to turn on RTK if we see RTK (base), once
+        self.rtk_latch = False
         self.last_transition = 0.0
         self.daemon = None
         self.device = None
@@ -830,11 +1015,15 @@ frame * {
         submenu = Gtk.Menu()
         topmenu.set_submenu(submenu)
 
-        views = [["Skyview", True, "<Control>S", "Skyview"],
-                 ["Responses", True, "<Control>R", "Responses"],
+        views = [["AIS Data", False, "<Control>A", "AIS"],
+                 ["ATT Data", False, "<Control>T", "ATT"],
                  ["GPS Data", True, "<Control>G", "GPS"],
+                 ["IMU MEAS Data", False, "<Control>M", "IMU MEAS"],
+                 ["IMU RAW Data", False, "<Control>I", "IMU RAW"],
                  ["Noise Statistics", False, "<Control>N", "Noise"],
-                 ["AIS Data", False, "<Control>A", "AIS"],
+                 ["Responses", True, "<Control>R", "Responses"],
+                 ["RTK Data", False, "<Control>K", "RTK"],
+                 ["Skyview", True, "<Control>S", "Skyview"],
                  ]
 
         self.menumap = {}
@@ -940,50 +1129,61 @@ frame * {
 
         vbox.pack_start(menubar, expand=False, fill=True, padding=0)
 
+        # Gtk.HBox() is deprecated, use Gtk.Box() or Gtk.Grid().
         self.satbox = Gtk.HBox(homogeneous=False, spacing=0)
         vbox.add(self.satbox)
 
         skyframe = Gtk.Frame(label="Satellite List")
         self.satbox.add(skyframe)
 
-        self.satlist = Gtk.ListStore(str, str, str, str, str, str, str)
-        view = Gtk.TreeView(model=self.satlist)
+        self.satlist = Gtk.ListStore(str, str, str, str, str, str, str, str,
+                                     str, str)
+        sat_view = Gtk.TreeView(model=self.satlist)
+        sat_view.set_fixed_height_mode(True)  # supposed to speed up TreeView
 
         satcols = [['', 0],
                    ['svid', 1],
+                   ['sig', 1],
                    ['PRN', 1],
                    ['Elev', 1],
                    ['Azim', 1],
                    ['SNR', 1],
+                   ['qual', 1],
+                   ['prRes', 1],
                    ['Used', 0],
                    ]
 
         for (i, satcol) in enumerate(satcols):
             renderer = Gtk.CellRendererText(xalign=satcol[1])
+            # renderer.props.font = "monospace 11"
+            # renderer.set_fixed_height_from_font(1)
             column = Gtk.TreeViewColumn(satcol[0], renderer)
             column.add_attribute(renderer, 'text', i)
-            view.append_column(column)
+            # required for set_fixed_height_mode(True)
+            column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
+            sat_view.append_column(column)
 
         self.row_iters = []
         for i in range(options.maxchandisp):
-            self.satlist.append(["", "", "", "", "", "", ""])
+            self.satlist.append(["", "", "", "", "", "", "", "", "", ""])
             self.row_iters.append(self.satlist.get_iter(i))
 
-        skyframe.add(view)
+        skyframe.add(sat_view)
 
+        # now do the Skyview
         viewframe = Gtk.Frame(label="Skyview")
         self.satbox.add(viewframe)
-        self.skyview = SkyView(self.rotate)
+        self.sky_view = SkyView(self.rotate)
         try:
             # mouseovers fail with remote DISPLAY
-            self.skyview.set_property('events',
-                                      Gdk.EventMask.POINTER_MOTION_MASK)
+            self.sky_view.set_property('events',
+                                       Gdk.EventMask.POINTER_MOTION_MASK)
         except NotImplementedError:
             # keep going anyway, w/o popups
             sys.stderr.write("xgps: WARNING: failed to grab mouse events, "
                              "popups disabled\n")
 
-        viewframe.add(self.skyview)
+        viewframe.add(self.sky_view)
 
         # Display area for incoming JSON
         self.rawdisplay = Gtk.Entry()
@@ -998,7 +1198,7 @@ frame * {
         self.dataframe.add(datatable)
         gpswidgets = []
         # min col widths
-        widths = [0, 25, 0, 20, 0, 23, 0, 8]
+        widths = [0, 25, 0, 20, 0, 23, 0, 0, 0, 8]
         for i in range(len(Base.gpsfields)):
             colbase = (i // Base.ROWS) * 2
             label = Gtk.Label()
@@ -1018,34 +1218,78 @@ frame * {
             gpswidgets.append(entry)
         vbox.add(self.dataframe)
 
+        # Add AIS
+        self.ais_box = Gtk.Box(homogeneous=False, spacing=0)
+        vbox.add(self.ais_box)
+        aisframe = Gtk.Frame(label="AIS Data")
+        self.ais_box.add(aisframe)
+        self.ais_view = AISView(self.deg_type)
+        aisframe.add(self.ais_view.widget)
+
+        # Add ATT
+        self.att_box = Gtk.Grid()
+        vbox.add(self.att_box)
+        att_frame = Gtk.Frame(label="ATT")
+        self.att_box.add(att_frame)
+        self.att_view = IMUView()
+        att_frame.add(self.att_view.widget)
+
+        # Add IMU MEAS and RAW
+        self.imumeas_box = Gtk.Grid()
+        vbox.add(self.imumeas_box)
+        imumeas_frame = Gtk.Frame(label="IMU MEAS")
+        self.imumeas_box.add(imumeas_frame)
+        self.imumeas_view = IMUView()
+        imumeas_frame.add(self.imumeas_view.widget)
+
+        self.imuraw_box = Gtk.Grid()
+        vbox.add(self.imuraw_box)
+        imuraw_frame = Gtk.Frame(label="IMU RAW")
+        self.imuraw_box.add(imuraw_frame)
+        self.imuraw_view = IMUView()
+        imuraw_frame.add(self.imuraw_view.widget)
+
         # Add noise box
-        self.noisebox = Gtk.HBox(homogeneous=False, spacing=0)
+        # FIXME: GtkBox() is deprecated, use Gtk.Grid()
+        self.noisebox = Gtk.Box(homogeneous=False, spacing=0)
         vbox.add(self.noisebox)
         noiseframe = Gtk.Frame(label="Noise Statistics")
         self.noisebox.add(noiseframe)
-        self.noiseview = NoiseView()
-        noiseframe.add(self.noiseview.widget)
+        self.noise_view = NoiseView()
+        noiseframe.add(self.noise_view.widget)
 
-        self.aisbox = Gtk.HBox(homogeneous=False, spacing=0)
-        vbox.add(self.aisbox)
-        aisframe = Gtk.Frame(label="AIS Data")
-        self.aisbox.add(aisframe)
-        self.aisview = AISView(self.deg_type)
-        aisframe.add(self.aisview.widget)
+        # Add RTK
+        self.rtk_box = Gtk.Grid()
+        vbox.add(self.rtk_box)
+        rtk_frame = Gtk.Frame(label="RTK")
+        self.rtk_box.add(rtk_frame)
+        self.rtk_view = RTKView()
+        rtk_frame.add(self.rtk_view.widget)
 
         self.window.show_all()
+        # Hide the ATT/IMU windows until first data seen
+        self.att_box.hide()
+        self.imumeas_box.hide()
+        self.imuraw_box.hide()
+        self.rtk_box.hide()
+
         # Hide the Noise Statistics window until user selects it.
         self.noisebox.hide()
 
         # Hide the AIS window until user selects it.
-        self.aisbox.hide()
+        self.ais_box.hide()
 
         self.view_name_to_widget = {
-            "Skyview": self.satbox,
-            "Responses": self.rawdisplay,
+            "AIS": self.ais_box,
+            "ATT": self.att_box,
             "GPS": self.dataframe,
+            "IMU MEAS": self.imumeas_box,
+            "IMU RAW": self.imuraw_box,
             "Noise": self.noisebox,
-            "AIS": self.aisbox}
+            "Responses": self.rawdisplay,
+            "RTK": self.rtk_box,
+            "Skyview": self.satbox,
+            }
 
         # Discard field labels and associate data hooks with their widgets
         Base.gpsfields = [(label_hook_widget[0][1], label_hook_widget[1])
@@ -1057,10 +1301,8 @@ frame * {
 
         # print("View toggle:", action.get_active(), name)
         if hasattr(self, 'view_name_to_widget'):
-            if action.get_active():
-                self.view_name_to_widget[name].show()
-            else:
-                self.view_name_to_widget[name].hide()
+            is_vis = self.view_name_to_widget[name].is_visible()
+            self.view_name_to_widget[name].set_visible(not is_vis)
         # The effect we're after is to make the top-level window
         # resize itself to fit when we show or hide widgets.
         # This is undocumented magic to do that.
@@ -1096,9 +1338,9 @@ frame * {
 
     def update_latitude(self, data):
         """Update latitude."""
-        if data.mode >= gps.MODE_2D and hasattr(data, "lat"):
+        if gps.MODE_2D <= data.mode and hasattr(data, "lat"):
             lat = gps.clienthelpers.deg_to_str(self.deg_type, data.lat)
-            if data.lat < 0:
+            if 0 > data.lat:
                 ns = 'S'
             else:
                 ns = 'N'
@@ -1108,9 +1350,9 @@ frame * {
 
     def update_longitude(self, data):
         """Update longitude."""
-        if data.mode >= gps.MODE_2D and hasattr(data, "lon"):
+        if gps.MODE_2D <= data.mode and hasattr(data, "lon"):
             lon = gps.clienthelpers.deg_to_str(self.deg_type, data.lon)
-            if data.lon < 0:
+            if 0 > data.lon:
                 ew = 'W'
             else:
                 ew = 'E'
@@ -1121,7 +1363,7 @@ frame * {
     def update_altitude(self, data, item):
         """Update altitude."""
         ret = "n/a"
-        if data.mode >= gps.MODE_3D:
+        if gps.MODE_3D <= data.mode:
             if 0 == item and hasattr(data, "altHAE"):
                 ret = ("%10.3f %s" %
                        ((data.altHAE * self.conversions.altfactor),
@@ -1173,7 +1415,7 @@ frame * {
         if 1 == item and hasattr(data, 'satellites_used'):
             return getattr(data, 'satellites_used')
 
-        return "n/a"
+        return self.old_sats[item]
 
     def update_dop(self, data, doptype):
         """Update a DOP in the GPS Data window."""
@@ -1202,7 +1444,7 @@ frame * {
         return "n/a"
 
     def update_err_speed(self, data, errtype):
-        """update speed error estimate in the GPS Data window."""
+        """Update speed error estimate in the GPS Data window."""
         if hasattr(data, errtype):
             return "%8.3f %s" % (
                 getattr(data, errtype) * self.conversions.speedfactor,
@@ -1211,7 +1453,7 @@ frame * {
         return "n/a"
 
     def update_err_degrees(self, data, errtype):
-        """update heading error estimate in the GPS Data window."""
+        """Update heading error estimate in the GPS Data window."""
         if hasattr(data, errtype):
             return ("%s " %
                     (gps.clienthelpers.deg_to_str(self.deg_type,
@@ -1221,7 +1463,7 @@ frame * {
 
     def update_mag_dec(self, data):
         """Update magnetic declination in the GPS Data window."""
-        if ((data.mode >= gps.MODE_2D and
+        if ((gps.MODE_2D <= data.mode and
              hasattr(data, "lat") and
              hasattr(data, "lon"))):
             off = gps.clienthelpers.mag_var(data.lat, data.lon)
@@ -1231,7 +1473,7 @@ frame * {
 
     def update_maidenhead(self, data):
         """Update maidenhead grid square in the GPS Data window."""
-        if ((data.mode >= gps.MODE_2D and
+        if ((gps.MODE_2D <= data.mode and
              hasattr(data, "lat") and
              hasattr(data, "lon"))):
             return gps.clienthelpers.maidenhead(data.lat, data.lon)
@@ -1244,7 +1486,7 @@ frame * {
 
         sub_status = ''
         if hasattr(data, 'status'):
-            if gps.STATUS_DGPS_FIX == data.status:
+            if gps.STATUS_DGPS == data.status:
                 sub_status = " DGPS"
             elif gps.STATUS_RTK_FIX == data.status:
                 sub_status = " RTKfix"
@@ -1261,9 +1503,9 @@ frame * {
             elif gps.STATUS_PPS_FIX == data.status:
                 sub_status = " PPS"
 
-        if data.mode == gps.MODE_2D:
+        if gps.MODE_2D == data.mode:
             status = "2D%s FIX" % sub_status
-        elif data.mode == gps.MODE_3D:
+        elif gps.MODE_3D == data.mode:
             if hasattr(data, 'status') and gps.STATUS_TIME == data.status:
                 status = "FIXED SURVEYED"
             else:
@@ -1285,17 +1527,16 @@ frame * {
         for (hook, widget) in Base.gpsfields[:27]:
             if hook:  # Remove this guard when we have all hooks
                 widget.set_markup(markup % hook(self, tpv))
-        if self.skyview:
+        if self.sky_view:
             if ((self.rotate is None and
                  hasattr(tpv, 'lat') and hasattr(tpv, 'lon'))):
-                self.skyview.rotate = gps.clienthelpers.mag_var(tpv.lat,
-                                                                tpv.lon)
+                self.sky_view.rotate = gps.clienthelpers.mag_var(tpv.lat,
+                                                                 tpv.lon)
             elif self.rotate is True and 'track' in tpv:
-                self.skyview.rotate = tpv.track
+                self.sky_view.rotate = tpv.track
 
     def update_version(self, ver):
         """Update the Version."""
-
         if ver.release != gps_version:
             sys.stderr.write("%s: WARNING gpsd version %s different than "
                              "expected %s\n" %
@@ -1322,17 +1563,23 @@ frame * {
 
     def update_skyview(self, data):
         """Update the satellite list and skyview."""
-        data.satellites_seen = 0
-        data.satellites_used = 0
         if hasattr(data, 'satellites'):
-            satellites = data.satellites
-            for fld in reversed(SKY_VIEW_SORT_FIELDS):
-                rev = (fld[0] == '-')
-                if rev:
-                    fld = fld[1:]
-                satellites = sorted(
-                    satellites[:],
-                    key=lambda x: x[fld], reverse=rev)
+            data.satellites_seen = 0
+            data.satellites_used = 0
+
+            def key_sats(s):
+                """sat sort function.  Used, gnssid, svid, sigid."""
+                val = 1
+                if s.used:
+                    val = 0
+                val = (val * 100) + s.gnssid
+                val = (val * 1000) + s.svid
+                val *= 100
+                if 'sigid' in s:
+                    val += s.sigid
+                return val
+
+            satellites = sorted(data.satellites, key=key_sats)
 
             # print("Sats: ", satellites)
             for (i, satellite) in enumerate(satellites):
@@ -1358,34 +1605,43 @@ frame * {
                     self.set_satlist_field(i, 1,
                                            self._int_to_str(satellite.svid,
                                                             1, 199))
+                if 'sigid' in satellite:
+                    s = int(satellite.sigid)
+                else:
+                    s = "   "
+                self.set_satlist_field(i, 2, s)
+
                 # NMEA uses PRN up to 437
-                self.set_satlist_field(i, 2,
+                self.set_satlist_field(i, 3,
                                        self._int_to_str(satellite.PRN, 1, 437))
                 # allow satellites 10 degree below horizon
-                self.set_satlist_field(i, 3,
+                self.set_satlist_field(i, 4,
                                        self._tenth_to_str(satellite.el,
                                                           -10, 90))
-                self.set_satlist_field(i, 4,
+                self.set_satlist_field(i, 5,
                                        self._tenth_to_str(satellite.az,
                                                           0, 359))
-                self.set_satlist_field(i, 5,
+                self.set_satlist_field(i, 6,
                                        self._tenth_to_str(satellite.ss,
                                                           0, 100))
-                self.set_satlist_field(i, 6, yesno)
+                if 'qual' in satellite:
+                    self.set_satlist_field(i, 7,
+                                           self._int_to_str(satellite.qual,
+                                                            1, 9))
+                if 'prRes' in satellite:
+                    self.set_satlist_field(i, 8,
+                                           self._tenth_to_str(satellite.prRes,
+                                                              -999, 999))
+                self.set_satlist_field(i, 9, yesno)
+            self.old_sats = [data.satellites_seen, data.satellites_used]
 
             # clear rest of the list
             for i in range(data.satellites_seen, options.maxchandisp):
-                for j in range(0, 7):
+                for j in range(0, 10):
                     self.set_satlist_field(i, j, "")
-        else:
-            # clear all of the list
-            for i in range(0, options.maxchandisp):
-                for j in range(0, 7):
-                    self.set_satlist_field(i, j, "")
-            satellites = ()
-
-        # repaint Skyview
-        self.skyview.redraw(satellites)
+            # repaint Skyview
+            self.sky_view.redraw(satellites)
+        # else:   #  a SKY with just DOPs
 
         markup = "<span font_desc='monospace 10'>%s </span>"
         # the first 27 fields are updated using TPV data
@@ -1400,20 +1656,20 @@ frame * {
         """Change the grid orientation."""
         self.rotate = handle
         if handle is not None:
-            self.skyview.rotate = handle
+            self.sky_view.rotate = handle
 
     def set_step_of_grid(self, system, handle):
         """Change the step of grid."""
         # print("set_step_of_grid:", system, handle)
         if hasattr(self, 'skyview') and self.skyview is not None:
-            self.skyview.step_of_grid = handle
+            self.sky_view.step_of_grid = handle
 
     def set_deg(self, _unused, handle):
         """Change the degree format."""
         # print("set_deg:", _unused, handle)
         self.deg_type = handle
-        if hasattr(self, 'mvview') and self.mvview is not None:
-            self.mvview.deg_type = handle
+        if hasattr(self, 'mv_view') and self.mv_view is not None:
+            self.mv_view.deg_type = handle
 
     def set_units(self, _unused, handle):
         """Change the display units."""
@@ -1435,7 +1691,7 @@ frame * {
 
     def handle_response(self, source, condition):
         """Handle ordinary I/O ready condition from the daemon."""
-        if self.daemon.read() == -1:
+        if -1 == self.daemon.read():
             self.handle_hangup(source, condition)
         if self.daemon.valid & gps.PACKET_SET:
             if ((self.device and
@@ -1443,24 +1699,48 @@ frame * {
                  self.device != self.daemon.data["device"])):
                 return True
             self.rawdisplay.set_text(self.daemon.response.strip())
-            if self.daemon.data["class"] == "VERSION":
-                self.update_version(self.daemon.version)
-            elif self.daemon.data["class"] == "SKY":
-                self.update_skyview(self.daemon.data)
-            elif self.daemon.data["class"] == "TPV":
-                self.update_gpsdata(self.daemon.data)
-            elif self.daemon.data["class"] == "GST":
-                self.noiseview.update(self.daemon.data)
+            if "AIS" == self.daemon.data["class"]:
+                self.ais_view.update(self.daemon.data)
+                if not self.ais_latch:
+                    self.ais_latch = True
+                    self.menumap['AIS'].set_active(True)
+                    self.ais_box.show()
+            elif "ATT" == self.daemon.data["class"]:
+                self.att_view.update(self.daemon.data)
+                self.rtk_view.update(self.daemon.data)
+                if not self.att_latch:
+                    self.att_latch = True
+                    self.menumap['ATT'].set_active(True)
+                    self.att_box.show()
+                if not self.rtk_latch:
+                    self.rtk_latch = True
+                    self.menumap['RTK'].set_active(True)
+                    self.rtk_box.show()
+            elif "GST" == self.daemon.data["class"]:
+                self.noise_view.update(self.daemon.data)
                 if not self.noise_latch:
                     self.noise_latch = True
                     self.menumap['Noise'].set_active(True)
                     self.noisebox.show()
-            elif self.daemon.data["class"] == "AIS":
-                self.aisview.update(self.daemon.data)
-                if not self.ais_latch:
-                    self.ais_latch = True
-                    self.menumap['AIS'].set_active(True)
-                    self.aisbox.show()
+            elif "IMU" == self.daemon.data["class"]:
+                if 'UBX-ESF-MEAS' == self.daemon.data["msg"]:
+                    self.imumeas_view.update(self.daemon.data)
+                    if not self.ais_latch:
+                        self.imumeas_latch = True
+                        self.menumap['IMU MEAS'].set_active(True)
+                        self.imumeas_box.show()
+                elif 'UBX-ESF-RAW' == self.daemon.data["msg"]:
+                    self.imuraw_view.update(self.daemon.data)
+                    if not self.imuraw_latch:
+                        self.imuraw_latch = True
+                        self.menumap['IMU RAW'].set_active(True)
+                        self.imuraw_box.show()
+            elif "SKY" == self.daemon.data["class"]:
+                self.update_skyview(self.daemon.data)
+            elif "TPV" == self.daemon.data["class"]:
+                self.update_gpsdata(self.daemon.data)
+            elif "VERSION" == self.daemon.data["class"]:
+                self.update_version(self.daemon.version)
 
         return True
 
@@ -1590,11 +1870,11 @@ if __name__ == "__main__":
         # override with target
         arg = options.target.split(':')
         len_arg = len(arg)
-        if len_arg == 1:
+        if 1 == len_arg:
             (options.host,) = arg
-        elif len_arg == 2:
+        elif 2 == len_arg:
             (options.host, options.port) = arg
-        elif len_arg == 3:
+        elif 3 == len_arg:
             (options.host, options.port, options.device) = arg
         else:
             parser.print_help()

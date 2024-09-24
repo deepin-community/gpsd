@@ -1,7 +1,8 @@
 #!@PYSHEBANG@
 # -*- coding: utf-8 -*-
 # @GENERATED@
-"""gps.py -- Python interface to GPSD.
+"""
+gps.py -- Python interface to GPSD.
 
 This interface has a lot of historical cruft in it related to old
 protocol, and was modeled on the C interface. It won't be thrown
@@ -47,6 +48,15 @@ VERB_INFO = 3    # more info
 VERB_RAW = 4     # raw info
 VERB_PROG = 5    # program trace
 
+GNSSID_GPS = 0
+GNSSID_SBAS = 1
+GNSSID_GAL = 2
+GNSSID_BD = 3
+GNSSID_IMES = 4
+GNSSID_QZSS = 5
+GNSSID_GLO = 6
+GNSSID_IRNSS = 7            # ZED-F9T mapping
+
 
 def isfinite(f):
     """Check if f is finite."""
@@ -55,7 +65,7 @@ def isfinite(f):
     return float('-inf') < float(f) < float('inf')
 
 
-# Don't hand-hack this list, it's generated.
+# Not required but a good idea if these match the list in include/gps.h
 ONLINE_SET = (1 << 1)
 TIME_SET = (1 << 2)
 TIMERR_SET = (1 << 3)
@@ -87,14 +97,25 @@ VERSION_SET = (1 << 28)
 POLICY_SET = (1 << 29)
 LOGMESSAGE_SET = (1 << 30)
 ERROR_SET = (1 << 31)
-TIMEDRIFT_SET = (1 << 32)
-EOF_SET = (1 << 33)
-SET_HIGH_BIT = 34
+TOFF_SET = (1 << 32)
+PPS_SET = (1 << 33)
+NAVDATA_SET = (1 << 34)
+OSCILLATOR_SET = (1 << 35)
+ECEF_SET = (1 << 36)
+VECEF_SET = (1 << 37)
+MAGNETIC_TRACK_SET = (1 << 38)
+RAW_SET = (1 << 39)
+NED_SET = (1 << 40)
+VNED_SET = (1 << 41)
+LOG_SET = (1 << 42)
+IMU_SET = (1 << 43)
+EOF_SET = (1 << 44)
+SET_HIGH_BIT = 44
 UNION_SET = (RTCM2_SET | RTCM3_SET | SUBFRAME_SET | AIS_SET | VERSION_SET |
              DEVICELIST_SET | ERROR_SET | GST_SET)
-STATUS_NO_FIX = 0
-STATUS_FIX = 1
-STATUS_DGPS_FIX = 2
+STATUS_UNK = 0
+STATUS_GPS = 1
+STATUS_DGPS = 2
 STATUS_RTK_FIX = 3
 STATUS_RTK_FLT = 4
 STATUS_DR = 5
@@ -114,7 +135,6 @@ class gpsfix(object):
 
     def __init__(self):
         """Init class gpsfix."""
-
         self.altitude = NaN         # Meters DEPRECATED
         self.altHAE = NaN           # Meters
         self.altMSL = NaN           # Meters
@@ -150,7 +170,7 @@ class gpsfix(object):
         self.relD = NaN
         self.sep = NaN              # a.k.a. epe
         self.speed = NaN            # Knots
-        self.status = STATUS_NO_FIX
+        self.status = STATUS_UNK
         self.time = NaN
         self.track = NaN            # Degrees from true north
         self.velN = NaN
@@ -206,7 +226,7 @@ class gps_io(object):
         self.verbosity_level = verbosity_level
         self.prog_name = os.path.basename(sys.argv[0])
         Serial = serial
-        Serial_v3 = Serial and Serial.VERSION.split('.')[0] >= '3'
+        Serial_v3 = Serial and '3' <= Serial.VERSION.split('.')[0]
         # buffer to hold read data
         self.out = b''
 
@@ -342,7 +362,8 @@ class gps_io(object):
        expect_statement_identifier: return only the specified package or
                                     1 if timeout. None (default) if no
                                     filtering is requested
-       input_wait: read timeout in seconds. Default: 2 seconds
+       input_wait: read timeout in seconds. Set to 0 to run forever.
+                   Default: 2 seconds
        raw: file descriptor like object (has to support the .write method)
             to dump raw data. None if not used
 """
@@ -355,11 +376,15 @@ class gps_io(object):
             # not expecting anything, so OK if we did not see it.
             ret_code = 0
 
+        if 0.01 > input_wait:
+            # 1e20 is close enough to forever for us
+            input_wait = 1e20
+
         try:
             if self.gpsd_host is not None:
                 # gpsd input
                 start = monotonic()
-                while input_wait > (monotonic() - start):
+                while (monotonic() - start) < input_wait:
                     # First priority is to be sure the input buffer is read.
                     # This is to prevent input buffer overuns
                     if 0 < self.ser.waiting():
@@ -387,7 +412,7 @@ class gps_io(object):
             elif self.input_is_device:
                 # input is a serial device
                 start = monotonic()
-                while input_wait > (monotonic() - start):
+                while (monotonic() - start) < input_wait:
                     # First priority is to be sure the input buffer is read.
                     # This is to prevent input buffer overuns
                     # pyserial 3.0+ deprecates inWaiting() in favor of
@@ -487,13 +512,13 @@ class gpsdata(object):
                 "ny"[self.used])
 
     def __init__(self):
-        # Initialize all data members
+        """Initialize all data members."""
         self.online = 0                 # NZ if GPS on, zero if not
 
         self.valid = 0
         self.fix = gpsfix()
 
-        self.status = STATUS_NO_FIX
+        self.status = STATUS_UNK
         self.utc = ""
 
         self.satellites_used = 0        # Satellites used in last fix
@@ -530,6 +555,7 @@ class gpsdata(object):
             st += "Track:    ?\n"
         else:
             st += "Track:    %f\n" % (self.fix.track)
+        # FIXME: what about other status values?
         st += "Status:   STATUS_%s\n" \
               % ("NO_FIX", "FIX", "DGPS_FIX")[self.status]
         st += "Mode:     MODE_%s\n" \
@@ -583,7 +609,7 @@ Or maybe a gpsd JSON file.
                            verbose=verbose)
 
         gpsdata.__init__(self)
-        gpsjson.__init__(self)
+        gpsjson.__init__(self, verbose=verbose)
         if mode:
             self.stream(mode)
 
@@ -597,9 +623,9 @@ Or maybe a gpsd JSON file.
             self.valid |= vbit
             return self.data[k]
 
-        if self.data.get("class") == "VERSION":
+        if "VERSION" == self.data.get("class"):
             self.version = self.data
-        elif self.data.get("class") == "DEVICE":
+        elif "DEVICE" == self.data.get("class"):
             self.valid = ONLINE_SET | DEVICE_SET
             self.path = self.data["path"]
             self.activated = default("activated", None)
@@ -613,10 +639,10 @@ Or maybe a gpsd JSON file.
             self.driver_mode = default("native", 0)
             self.mincycle = default("mincycle", NaN)
             self.serialmode = default("serialmode", "8N1")
-        elif self.data.get("class") == "TPV":
+        elif "TPV" == self.data.get("class"):
+            self.valid = ONLINE_SET
             self.device = default("device", "missing")
             self.utc = default("time", None, TIME_SET)
-            self.valid = ONLINE_SET
             if self.utc is not None:
                 # self.utc is always iso 8601 string
                 # just copy to fix.time
@@ -625,6 +651,8 @@ Or maybe a gpsd JSON file.
             self.fix.altHAE = default("altHAE", NaN, ALTITUDE_SET)
             self.fix.altMSL = default("altMSL", NaN, ALTITUDE_SET)
             self.fix.climb = default("climb", NaN, CLIMB_SET)
+            self.fix.ecefvx = default("ecefvx", NaN, VECEF_SET)
+            self.fix.ecefx = default("ecefx", NaN, ECEF_SET)
             self.fix.epc = default("epc", NaN, CLIMBERR_SET)
             self.fix.epd = default("epd", NaN)
             self.fix.eps = default("eps", NaN, SPEEDERR_SET)
@@ -638,7 +666,7 @@ Or maybe a gpsd JSON file.
             self.fix.speed = default("speed", NaN, SPEED_SET)
             self.fix.status = default("status", 1)
             self.fix.track = default("track", NaN, TRACK_SET)
-        elif self.data.get("class") == "SKY":
+        elif "SKY" == self.data.get("class"):
             self.device = default("device", "missing")
             for attrp in ("g", "h", "p", "t", "v", "x", "y"):
                 n = attrp + "dop"
@@ -661,30 +689,22 @@ Or maybe a gpsd JSON file.
                 if sat.used:
                     self.satellites_used += 1
             self.valid = ONLINE_SET | SATELLITE_SET
-        elif self.data.get("class") == "PPS":
+        elif "PPS" == self.data.get("class"):
             self.device = default("device", "missing")
             self.real_sec = default("real_sec", NaN)
             self.real_nsec = default("real_nsec", NaN)
             self.clock_sec = default("clock_sec", NaN)
             self.clock_nsec = default("clock_nsec", NaN)
             self.precision = default("precision", 0)
-        # elif self.data.get("class") == "DEVICES":
+        # elif "DEVICES" == self.data.get("class"):
         # TODO: handle class DEVICES    # pylint: disable=fixme
 
-    def read(self):
-        """Read and interpret data from the daemon."""
-        status = gpscommon.read(self)
-        if status <= 0:
-            return status
-        if self.response.startswith("{") and self.response.endswith("}\r\n"):
-            self.unpack(self.response)
-            self._oldstyle_shim()
-            self.valid |= PACKET_SET
-        return 0
-
     def __next__(self):
-        """Python 3 version of next()."""
-        if self.read() == -1:
+        """Python 3 version of next().
+
+This is just a shim over read() to enable implicit iteration.
+Not intended to be used directly, use read() instead."""
+        if -1 == self.read():
             raise StopIteration
         if hasattr(self, "data"):
             return self.data
@@ -692,12 +712,29 @@ Or maybe a gpsd JSON file.
         return self.response
 
     def next(self):
-        """Python 2 backward compatibility."""
+        """Python 2 compatibile next().
+
+This is just a shim over read() to enable implicit iteration.
+Not intended to be used directly, use read() instead."""
         return self.__next__()
+
+    def read(self):
+        """Read and interpret data from a gpsd daemon.
+
+Return: less than zero on error or disconnect
+        Otherwise zero,
+"""
+        status = gpscommon.read(self)
+        if 0 >= status:
+            return status
+        if self.response.startswith("{") and self.response.endswith("}\r\n"):
+            self.unpack(self.response)
+            self._oldstyle_shim()
+            self.valid |= PACKET_SET
+        return 0
 
     def stream(self, flags=0, devpath=None):
         """Ask gpsd to stream reports at your client."""
-
         gpsjson.stream(self, flags, devpath)
 
 
@@ -746,7 +783,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     streaming = False
-    if len(arguments) > 2:
+    if arguments and 2 < len(arguments):
         sys.stderr.write("gps.py: too many positional arguments.")
         sys.exit(1)
 

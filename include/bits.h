@@ -17,15 +17,21 @@
 #include <stdint.h>
 #include <limits.h>
 
-/* number of bytes requited to contain a bit array of specified length */
+// convert unsigned "bit" wide integer to signed integer.  long long too.
+#define UINT2INT(u, bit) (long long)((u & (1LL<<(bit-1))) ? u - (1LL<<bit) : u)
+
+// return a bitmask of n ones. For example:  BITMASK(4) == 0x0f
+#define BITMASK(n) ((1ULL << (n)) - 1ULL)
+
+// number of bytes requited to contain a bit array of specified length
 #define BITS_TO_BYTES(bitlen)   (((bitlen) + CHAR_BIT - 1) / CHAR_BIT)
 
-/* these are independent of byte order */
+// these are independent of byte order
 #define getsb(buf, off) ((int8_t)buf[off])
 #define getub(buf, off) ((uint8_t)buf[off])
 #define putbyte(buf,off,b) do {buf[off] = (unsigned char)(b);} while (0)
 
-/* little-endian access */
+// little-endian access
 #define getles16(buf, off)      ((int16_t)(((uint16_t)getub((buf),   (off)+1) << 8) | (uint16_t)getub((buf), (off))))
 #define getleu16(buf, off)      ((uint16_t)(((uint16_t)getub((buf), (off)+1) << 8) | (uint16_t)getub((buf), (off))))
 #define getles32(buf, off)      ((int32_t)(((uint16_t)getleu16((buf),  (off)+2) << 16) | (uint16_t)getleu16((buf), (off))))
@@ -38,7 +44,7 @@ extern double getled64(const char *, int);
 #define putle16(buf, off, w) do {putbyte(buf, (off)+1, (unsigned int)(w) >> 8); putbyte(buf, (off), (w));} while (0)
 #define putle32(buf, off, l) do {putle16(buf, (off)+2, (unsigned int)(l) >> 16); putle16(buf, (off), (l));} while (0)
 
-/* big-endian access */
+// big-endian access
 #define getbes16(buf, off)      ((int16_t)(((uint16_t)getub(buf, (off)) << 8) | (uint16_t)getub(buf, (off)+1)))
 #define getbeu16(buf, off)      ((uint16_t)(((uint16_t)getub(buf, (off)) << 8) | (uint16_t)getub(buf, (off)+1)))
 #define getbeu24(buf, off)      ((uint32_t)(((uint16_t)getbeu16(buf, (off)) << 8) | getub(buf, (off)+2)))
@@ -57,9 +63,11 @@ extern void putbed64(char *, int, double);
 
 extern void shiftleft(unsigned char *, int, unsigned short);
 
-/* bitfield extraction */
-extern uint64_t ubits(unsigned char buf[], unsigned int, unsigned int, bool);
-extern int64_t sbits(signed char buf[], unsigned int, unsigned int, bool);
+// bitfield extraction
+extern uint64_t ubits(const unsigned char buf[], unsigned int, unsigned int,
+                      bool);
+extern int64_t sbits(const unsigned char buf[], unsigned int, unsigned int,
+                     bool);
 
-#endif /* _GPSD_BITS_H_ */
+#endif  // _GPSD_BITS_H_
 // vim: set expandtab shiftwidth=4

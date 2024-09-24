@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-#include "../include/gpsd_config.h"  /* must be before all includes */
+#include "../include/gpsd_config.h"   // must be before all includes
+
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -12,7 +13,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../include/bits.h"
+#include "../include/gps.h"           // for gps_hexdump()
 
+// test array of 640 bits
 static unsigned char buf[80];
 static signed char sb1, sb2;
 static unsigned char ub1, ub2;
@@ -24,21 +27,6 @@ static int64_t sL1, sL2;
 static uint64_t uL1, uL2;
 static float f1;
 static double d1;
-
-static char *hexdump(const void *binbuf, size_t len)
-{
-    static char hexbuf[BUFSIZ];
-    size_t i, j = 0;
-    const char *ibuf = (const char *)binbuf;
-    const char *hexchar = "0123456789abcdef";
-
-    for (i = 0; i < len; i++) {
-        hexbuf[j++] = hexchar[(ibuf[i] & 0xf0) >> 4];
-        hexbuf[j++] = hexchar[ibuf[i] & 0x0f];
-    }
-    hexbuf[j] = '\0';
-    return hexbuf;
-}
 
 static void bedumpall(void)
 {
@@ -114,47 +102,156 @@ static void ledumpall(void)
                  (uint64_t) uL1, (uint64_t) uL2,
                  (uint64_t) getleu64(buf, 0), (uint64_t) getleu64(buf, 8));
     (void)printf("getlef32: %f %f\n", f1, getlef32((const char *)buf, 24));
-    (void)printf("getled64: %.16f %.16f\n", d1, getled64((const char *)buf, 16));
+    (void)printf("getled64: %.16f %.16f\n", d1,
+                 getled64((const char *)buf, 16));
 }
 
 struct unsigned_test
 {
-    unsigned char *buf;
+    const unsigned char *buf;
     unsigned int start, width;
     uint64_t expected;
     bool le;
     char *description;
 };
 
+struct bitmask
+{
+    int shift;
+    unsigned long long mask;
+};
+static struct bitmask bitmask_tests[] = {
+    {0, 0},
+    {1, 1},
+    {2, 3},
+    {3, 7},
+    {15, 0x07fff},
+    {16, 0x0ffff},
+    {31, 0x07fffffff},
+    {32, 0x0ffffffffULL},
+    {40, 0x0ffffffffffULL},
+    {255, 0},     // 255 marks end
+};
+struct uint2int
+{
+    unsigned long long uint;
+    int bits;
+    long long res;
+};
+static struct uint2int uint2_tests[] = {
+    {0, 2, 0},
+    {1, 2, 1},
+    {2, 2, -2},
+    {3, 2, -1},
+    {0x1b, 5, -5},
+    {5, 5, 5},
+    {0x07f, 8, 127},
+    {0x080, 8, -128},
+    {0x0ff, 8, -1},
+    {0x07fff, 16, 32767},
+    {0x08000, 16, -32768},
+    {0x0ffff, 16, -1},
+    {0x07ffff, 20, 524287},
+    {0x080000, 20, -524288},
+    {0x0fffff, 20, -1},
+    {0x07fffffff, 32, 2147483647},
+    {0x080000000ULL, 32, -2147483648LL},
+    {0x0ffffffffULL, 32, -1},
+    {0x07ffffffffULL, 36, 34359738367LL},
+    {0x0800000000ULL, 36, -34359738368LL},
+    {0x0fffffffffULL, 36, -1},
+    {0, 255, 0},     // 255 marks end
+};
+
+struct hextest_t
+{
+    const char *ascii;
+    const char *bin;      // a binary string
+    size_t binlen;        // length of binary string
+};
+static struct hextest_t hextests[] = {
+    {"000110ff", "\x00\x01\x10\xff", 4},
+    {"00010203040506070809", "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09", 10},
+    {"00102030405060708090", "\x00\x10\x20\x30\x40\x50\x60\x70\x80\x90", 10},
+    {"41426162", "ABab", 4},
+    {"54686520517569636b2042726f776e20466f7820"
+     "4a756d706564204f76657220546865204c617a79"
+     "20446f672773204261636b2e",
+     "The Quick Brown Fox Jumped Over The Lazy Dog's Back.", 52},
+    {NULL, NULL, 0},
+};
+
 int main(int argc, char *argv[])
 {
-    bool failures = false;
+    int failures = 0;
     bool quiet = (argc > 1) && (strcmp(argv[1], "--quiet") == 0);
 
     struct unsigned_test *up, unsigned_tests[] = {
-        /* tests using the big buffer */
+        // tests using the big buffer
         {buf, 0,  1,  0,    false, "first bit of first byte"},
         {buf, 0,  8,  0x01, false, "first 8 bits"},
         {buf, 32, 7,  0x02, false, "first seven bits of fifth byte (0x05)"},
         {buf, 56, 12, 0x8f, false, "12 bits crossing 7th to 8th bytes (0x08ff)"},
-        {buf, 78, 4,  0xb, false, "4 bits crossing 8th to 9th byte (0xfefd)"},
+        {buf, 78, 4,  0xb,  false, "4 bits crossing 8th to 9th byte (0xfefd)"},
+        {buf, 1,  56, 0x020406080a0c0eULL,  false, "56 bits, 1 bit in"},
+        {buf, 7,  56, 0x81018202830384ULL,  false, "56 bits, 7 bit in"},
+        {buf, 9,  56, 0x0406080a0c0e11ULL,  false, "56 bits, 9 bits in"},
+        // width 56 max, check consistent fail on 64 bits
+        {buf, 0,  64, 0,  false, "64 bits, 0 bit in"},
+        {buf, 1,  64, 0,  false, "64 bits, 1 bit in"},
+        {buf, 7,  33, 0x102030405ULL,  false, "33 bits, 7 bits in"},
         {buf, 0,  1,  0,    true,  "first bit of first byte"},
         {buf, 0,  8,  0x80, true,  "first 8 bits"},
         {buf, 32, 7,  0x20, true, "first seven bits of fifth byte (0x05)"},
         {buf, 56, 12, 0xf10,true, "12 bits crossing 7th to 8th bytes (0x08ff)"},
         {buf, 78, 4,  0xd,  true, "4 bits crossing 8th to 9th byte (0xfefd)"},
-        /* sporadic tests based on found bugs */
+        // sporadic tests based on found bugs
         {(unsigned char *)"\x19\x23\f6",
          7, 2, 2, false, "2 bits crossing 1st to 2nd byte (0x1923)"},
     };
+    struct bitmask *bitm = bitmask_tests;
+    struct uint2int *uint2 = uint2_tests;
+    struct hextest_t *hextest = hextests;
+    char hexbuf[BUFSIZ];
 
-    memcpy(buf, "\x01\x02\x03\x04\x05\x06\x07\x08", 8);
-    memcpy(buf + 8, "\xff\xfe\xfd\xfc\xfb\xfa\xf9\xf8", 8);
-    memcpy(buf + 16, "\x40\x09\x21\xfb\x54\x44\x2d\x18", 8);
-    memcpy(buf + 24, "\x40\x49\x0f\xdb", 5);
+    if (!quiet) {
+        (void)printf("Testing gps_hexdump()\n");
+    }
+    for (hextest = hextests; NULL != hextest->ascii; hextest++) {
+        int fail;
 
-    if (!quiet)
+        (void)gps_hexdump(hexbuf, sizeof(hexbuf),
+                          (const unsigned char *)hextest->bin,
+                          hextest->binlen);
+        fail = strcmp(hexbuf, hextest->ascii);
+        if (0 != fail) {
+            failures++;
+        }
+        if (!quiet ||
+            fail) {
+            char hexbuf2[BUFSIZ];
+            char hexbuf3[BUFSIZ];
+
+            (void)printf("gps_hexdump(%s, %zu) got %s s/b %s\n",
+                          gps_visibilize(hexbuf2, sizeof(hexbuf2),
+                                         hextest->bin,
+                                         hextest->binlen),
+                          hextest->binlen, hextest->ascii,
+                          gps_visibilize(hexbuf3, sizeof(hexbuf3), hexbuf,
+                                         strnlen(hexbuf, sizeof(hexbuf))));
+        }
+    }
+
+    if (!quiet) {
         (void)printf("Testing bitfield extraction\n");
+    }
+
+    // test array of 640/232 bits
+    memcpy(buf,
+        "\x01\x02\x03\x04\x05\x06\x07\x08"
+        "\xff\xfe\xfd\xfc\xfb\xfa\xf9\xf8"
+        "\x40\x09\x21\xfb\x54\x44\x2d\x18"
+        "\x40\x49\x0f\xdb", 29);
 
     sb1 = getsb(buf, 0);
     sb2 = getsb(buf, 8);
@@ -162,14 +259,15 @@ int main(int argc, char *argv[])
     ub2 = getub(buf, 8);
 
     if (!quiet) {
-        unsigned char *sp;
+        const unsigned char *sp;
 
         (void)fputs("Test data:", stdout);
-        for (sp = buf; sp < buf + 28; sp++)
+        for (sp = buf; sp < buf + 28; sp++) {
             (void)printf(" %02x", *sp);
+        }
         (void)putc('\n', stdout);
 
-        /* big-endian test */
+        // big-endian test
         printf("Big-endian:\n");
         sw1 = getbes16(buf, 0);
         sw2 = getbes16(buf, 8);
@@ -187,7 +285,7 @@ int main(int argc, char *argv[])
         d1 = getbed64((const char *)buf, 16);
         bedumpall();
 
-        /* little-endian test */
+        // little-endian test
         printf("Little-endian:\n");
         sw1 = getles16(buf, 0);
         sw2 = getles16(buf, 8);
@@ -206,32 +304,46 @@ int main(int argc, char *argv[])
         ledumpall();
     }
 
-    if (sb1 != 1)  printf("getsb(buf, 0) FAILED\n");
-    if (sb2 != -1) printf("getsb(buf, 8) FAILED\n");
-    if (ub1 != 1)  printf("getub(buf, 0) FAILED\n");
-    if (ub2 != 0xff) printf("getub(buf, 8) FAILED\n");
+    if (1 != sb1) {
+        printf("getsb(buf, 0) FAILED\n");
+    }
+    if (-1 != sb2)  {
+        printf("getsb(buf, 8) FAILED\n");
+    }
+    if (1 != ub1) {
+        printf("getub(buf, 0) FAILED\n");
+    }
+    if (0xff != ub2) {
+        printf("getub(buf, 8) FAILED\n");
+    }
 
     for (up = unsigned_tests;
          up <
          unsigned_tests + sizeof(unsigned_tests) / sizeof(unsigned_tests[0]);
          up++) {
-        uint64_t res = ubits((unsigned char *)buf, up->start, up->width, up->le);
+        uint64_t res = ubits(buf, up->start, up->width, up->le);
         bool success = (res == up->expected);
-        if (!success)
-            failures = true;
-        if (!success || !quiet)
+        if (!success) {
+            failures++;
+        }
+        if (!success ||
+            !quiet) {
             (void)printf("ubits(%s, %d, %d, %s) %s should be %" PRIx64
                          ", is %" PRIx64 ": %s\n",
-                         hexdump(buf, strlen((char *)buf)),
+                         gps_hexdump(hexbuf, sizeof(hexbuf),
+                                     buf, strnlen((char *)buf, sizeof(buf))),
                          up->start, up->width, up->le ? "true" : "false",
                          up->description, up->expected, res,
                          success ? "succeeded" : "FAILED");
+        }
     }
 
 
     shiftleft(buf, 28, 30);
-    if (!quiet)
-        printf("Left-shifted 30 bits: %s\n", hexdump(buf, 28));
+    if (!quiet) {
+        printf("Left-shifted 30 bits: %s\n",
+               gps_hexdump(hexbuf, sizeof(hexbuf), buf, 28));
+    }
     /*
      * After the 24-bit shift, the bit array loses its first three bytes:
      * 0x0405060708 = 00000100 00000101 00000110 00000111 00001000
@@ -246,6 +358,35 @@ int main(int argc, char *argv[])
     LASSERT(3, 0xc1);
 #undef LASSERT
 
+
+    if (!quiet) {
+        (void)printf("Testing BITMASK(N)\n");
+    }
+
+    // coverity complains about shift more than 63 bits
+    while (64 > bitm->shift) {
+        if (bitm->mask != BITMASK(bitm->shift)) {
+            failures++;
+            printf("BITMASK(0) FAILED, %llu s/b %llu\n",
+               bitm->mask, BITMASK(bitm->shift));
+        }
+        bitm++;
+    }
+
+    if (!quiet) {
+        (void)printf("Testing UINT2INT(U, N)\n");
+    }
+
+    // coverity complains about shift more than 63 bits
+    while (64 > uint2->bits) {
+        if (uint2->res != UINT2INT(uint2->uint, uint2->bits)) {
+            failures++;
+            printf("UINT2INT(x%llx, %d) FAILED, %lld s/b %lld\n",
+               uint2->uint, uint2->bits,
+               uint2->res, UINT2INT(uint2->uint, uint2->bits));
+        }
+        uint2++;
+    }
 
     exit(failures ? EXIT_FAILURE : EXIT_SUCCESS);
 

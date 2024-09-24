@@ -1,0 +1,5 @@
+# These are false positives
+gpsd-clients: spelling-error-in-binary lon long [usr/bin/gpsdecode]
+gpsd-clients: typo-in-manual-page Foll Follow [*]
+# Common man page for all clients
+gpsd-clients: spare-manual-page [usr/share/man/man1/gps.1.gz]

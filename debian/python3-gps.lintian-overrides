@@ -1,0 +1,4 @@
+# This is a private library for the Python bindings
+python3-gps: package-name-doesnt-match-sonames *
+# This is a private library with 1:1 version relation
+python3-gps: no-symbols-control-file *

@@ -1,6 +1,6 @@
 /*
  * Unit test for timespec's
- * Also for parse_uri_dest()
+ * Also for parse_uri_dest(), and ntrip_parse_url
  *
  * This file is Copyright 2010 by the GPSD project
  * SPDX-License-Identifier: BSD-2-clause
@@ -172,8 +172,8 @@ struct ts_to_ms_test ts_to_ms_tests[] = {
         { TS_N_ONEM,        -60000, 0},
         { TS_N_ONEH,        -3600000, 0},
         { TS_N_ONED,        -86400000, 0},
-        { { -1, MS_IN_NS},  -999, 0},
-        { { -1, -MS_IN_NS}, -1001, 0},
+        { { -1, NS_IN_MS},  -999, 0},
+        { { -1, -NS_IN_MS}, -1001, 0},
         // Note no (extra) loss of precision on the following
         { TS_2037,          2145916799000ULL, 0},
         { TS_2037_ONE,      2145916799000ULL, 0},
@@ -662,6 +662,8 @@ static void ex_precision(void)
         ex_subtract_float();
 }
 
+// parse_uri tests
+
 struct test_parse_uri_dest_t {
     char *uri;
     char *host;
@@ -771,6 +773,159 @@ static int test_parse_uri_dest(int verbose)
     return fail_count;
 }
 
+// ntrip_parse_url() tests
+
+struct test_ntrip_parse_url_t {
+    char *testurl;   // test url
+    char *url;       // recovered url
+    char *credentials;     // user@pass
+    char *host;
+    char *port;
+    char *mountpoint;
+    int result;
+} tests_ntrip_parse_url[] = {
+    // missing mountpoint
+    {"ntrip.com/",
+     "ntrip.com/", "", "ntrip.com", "rtcm-sc104", "MP", -1},
+    // IPv4 and mountpoint
+    {"127.0.0.1/MP",
+     "127.0.0.1/MP", "", "127.0.0.1", "rtcm-sc104", "MP", 0},
+    // IPv6 and mountpoint
+    {"[fe80::1]/MP",
+     "[fe80::1]/MP", "", "fe80::1", "rtcm-sc104", "MP", 0},
+    // IPv6, port and mountpoint
+    {"[fe80::1]:999/MP",
+     "[fe80::1]:999/MP", "", "fe80::1", "999", "MP", 0},
+    {"ntrip.com/MP",
+     "ntrip.com/MP", "", "ntrip.com", "rtcm-sc104", "MP", 0},
+    {"ntrip.com:2101/MP",
+     "ntrip.com:2101/MP", "", "ntrip.com", "2101", "MP", 0},
+    {"user:pass@ntrip.com/MP",
+     "user:pass@ntrip.com/MP", "user:pass", "ntrip.com",
+     "rtcm-sc104", "MP", 0},
+    {"user:pass@ntrip.com:2101/MP",
+     "user:pass@ntrip.com:2101/MP", "user:pass", "ntrip.com",
+     "2101", "MP", 0},
+    {"user:pass@[fe80::1]:2101/MP",
+     "user:pass@[fe80::1]:2101/MP", "user:pass", "fe80::1",
+     "2101", "MP", 0},
+    // @ in username
+    {"u@b.com:pass@ntrip.com/MP",
+     "u@b.com:pass@ntrip.com/MP", "u@b.com:pass", "ntrip.com",
+     "rtcm-sc104", "MP",
+      0},
+    {"u@b.com:pass@ntrip.com:2101/MP",
+     "u@b.com:pass@ntrip.com:2101/MP", "u@b.com:pass", "ntrip.com",
+     "2101", "MP", 0},
+    // @ in password
+    {"u@b.com:p@ss@ntrip.com/MP",
+     "u@b.com:p@ss@ntrip.com/MP", "u@b.com:p@ss", "ntrip.com",
+     "rtcm-sc104", "MP", 0},
+    {"u@b.com:pass@ntrip.com:2101/MP",
+     "u@b.com:pass@ntrip.com:2101/MP", "u@b.com:pass", "ntrip.com",
+     "2101", "MP",
+     0},
+    // @ in password, IPv6
+    {"u@b.com:p@ss@[fe80::1]/MP",
+     "u@b.com:p@ss@[fe80::1]/MP", "u@b.com:p@ss", "fe80::1",
+     "rtcm-sc104", "MP", 0},
+    {"u@b.com:pass@[fe80::1]:2101/MP",
+     "u@b.com:pass@[fe80::1]:2101/MP", "u@b.com:pass", "fe80::1",
+     "2101", "MP",
+     0},
+    // illegal trailing slash
+    {"u@b.com:pass@ntrip.com:2101/MP/",
+     "u@b.com:pass@ntrip.com:2101/MP/", "u@b.com:pass", "ntrip.com",
+     "2101", "MP", -1},
+    // illegal trailing slash (missing mountpoint
+    {"u@b.com:pass@ntrip.com:2101/",
+     "u@b.com:pass@ntrip.com:2101/", "u@b.com:pass", "ntrip.com",
+     "2101", "MP", -1},
+    {NULL, NULL, NULL, NULL, NULL},
+};
+
+static int test_ntrip_parse_url(int verbose)
+{
+    int fail_count = 0;
+    struct test_ntrip_parse_url_t *p = tests_ntrip_parse_url;
+    struct gpsd_errout_t errout;
+    struct ntrip_stream_t stream;
+
+    printf("\n\nTest ntrip_parse_url()\n");
+    memset(&errout, 0, sizeof(errout));
+    errout.debug = INT_MIN;             // turn off error reporting
+    errout.label = "test";              // turn off error reporting
+
+    while(NULL != p->testurl) {
+        int result;
+        int err = 0;
+
+        memset(&stream, 0, sizeof(stream));
+        result = ntrip_parse_url(&errout, &stream, p->testurl);
+        if (p->result != result) {
+            err = 1;
+        }
+        if (0 == result) {
+            if (0 != strcmp(p->url, stream.url)) {
+                err = 2;
+            }
+            if (0 != strcmp(p->credentials, stream.credentials)) {
+                err = 3;
+            }
+            if (0 != strcmp(p->port, stream.port)) {
+                // Debian does not have rtcm-sc104 in /etc/services...
+                if (0 != strcmp(p->port, "rtcm-sc104") ||
+                    0 != strcmp(stream.port, DEFAULT_RTCM_PORT)) {
+                    // so accept 2101 for rtcm-sc104
+                    err = 4;
+                }
+            }
+            if (0 != strcmp(p->host, stream.host)) {
+                err = 5;
+            }
+            if (0 != strcmp(p->mountpoint, stream.mountpoint)) {
+                err = 6;
+            }
+        }
+
+        if (0 < err) {
+            printf("ntrip_parse_url(%s) = %d failed err = %d\n",
+                   p->testurl, result, err);
+            printf("  got = %d: %s, %s, %s, %s, %s \n",
+                   result,
+                   stream.url,
+                   stream.credentials,
+                   stream.host,       // host
+                   stream.port,
+                   stream.mountpoint);
+            printf("  s/b = %d: %s, %s, %s, %s, %s\n",
+                   p->result,
+                   p->url,
+                   p->credentials,
+                   p->host,
+                   p->port,
+                   p->mountpoint);
+            fail_count++;
+        } else if (verbose) {
+            printf("  ntrip_parse_url(%s) = %d %s, %s, %s, %s, %s\n",
+                   p->testurl,
+                   p->result,
+                   p->url,
+                   p->credentials,
+                   p->host,
+                   p->port,
+                   p->mountpoint);
+        }
+        p++;
+    }
+    if (fail_count) {
+        printf("ntrip_parse_url() test failed %d tests\n", fail_count);
+    } else {
+        puts("ntrip_parse_url() test succeeded\n");
+    }
+    return fail_count;
+}
+
 int main(int argc, char *argv[])
 {
     int fail_count = 0;
@@ -803,6 +958,7 @@ int main(int argc, char *argv[])
     fail_count += test_ns_subtract(verbose);
     fail_count += test_gpsd_gpstime_resolv(verbose);
     fail_count += test_parse_uri_dest(verbose);
+    fail_count += test_ntrip_parse_url(verbose);
 
     if ( fail_count ) {
         printf("timespec tests failed %d tests\n", fail_count );
