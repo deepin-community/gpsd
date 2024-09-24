@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This file is Copyright 2010 by the GPSD project
 # SPDX-License-Identifier: BSD-2-clause
@@ -161,6 +161,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
+        source.masks.sort()  # I like sorted lists
+        source.primitive_masks.sort(key=lambda m: m[0])  # I like sorted lists
         if options.tabulate:
             print("%-14s        %8s" % (" ", banner))
             for (flag, value) in source.masks:
@@ -188,13 +190,17 @@ if __name__ == '__main__':
  * Try to write guards so it is only called at higher log levels.
  */
 
-#include \"../include/gpsd_config.h\"  /* must be before all includes */
+#include \"../include/gpsd_config.h\"  // must be before all includes
 
 #include <stdio.h>
 #include <string.h>
 
 #include \"../include/gpsd.h\"
 
+/* Convert gps_mask_t set to a string representation
+ *
+ * Return pointer to static buffer contatining the string.
+ */
 const char *gps_maskdump(gps_mask_t set)
 {
     static char buf[%d];
@@ -203,7 +209,7 @@ const char *gps_maskdump(gps_mask_t set)
         const char      *name;
     } *sp, names[] = {""" % (maxout + 3,))
             masks = clientside.primitive_masks + daemonside.primitive_masks
-            for (flag, value) in masks:
+            for (flag, value) in sorted(masks):
                 stem = flag
                 if stem.endswith("_SET"):
                     stem = stem[:-4]
@@ -215,13 +221,14 @@ const char *gps_maskdump(gps_mask_t set)
 
     memset(buf, '\\0', sizeof(buf));
     buf[0] = '{';
-    for (sp = names; sp < names + sizeof(names)/sizeof(names[0]); sp++)
-        if ((set & sp->mask)!=0) {
+    for (sp = names; sp < (names + sizeof(names)/sizeof(names[0])); sp++) {
+        if ((gps_mask_t)0 != (set & sp->mask)) {
+            if (\'\\0\' != buf[1]) {
+                (void)strlcat(buf, "|", sizeof(buf));
+            }
             (void)strlcat(buf, sp->name, sizeof(buf));
-            (void)strlcat(buf, "|", sizeof(buf));
         }
-    if (buf[1] != \'\\0\')
-        buf[strlen(buf)-1] = \'\\0\';
+    }
     (void)strlcat(buf, "}", sizeof(buf));
     return buf;
 }

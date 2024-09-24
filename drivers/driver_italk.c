@@ -57,7 +57,7 @@ static gps_mask_t decode_itk_navfix(struct gps_device_t *session,
     //cflags = (unsigned short) getleu16(buf, 7 + 6);
     pflags = (unsigned short) getleu16(buf, 7 + 8);
 
-    session->newdata.status = STATUS_NO_FIX;
+    session->newdata.status = STATUS_UNK;
     session->newdata.mode = MODE_NO_FIX;
     mask = ONLINE_SET | MODE_SET | STATUS_SET | CLEAR_IS;
 
@@ -109,9 +109,9 @@ static gps_mask_t decode_itk_navfix(struct gps_device_t *session,
             session->newdata.mode = MODE_2D;
 
         if (pflags & FIX_FLAG_DGPS_CORRECTION)
-            session->newdata.status = STATUS_DGPS_FIX;
+            session->newdata.status = STATUS_DGPS;
         else
-            session->newdata.status = STATUS_FIX;
+            session->newdata.status = STATUS_GPS;
     }
 
     GPSD_LOG(LOG_DATA, &session->context->errout,
@@ -252,10 +252,11 @@ static gps_mask_t decode_itk_subframe(struct gps_device_t *session,
      * Timo says "SUBRAME message contains decoded navigation message subframe
      * words with parity checking done but parity bits still present."
      */
-    for (i = 0; i < 10; i++)
+    for (i = 0; i < 10; i++) {
         words[i] = (uint32_t)(getleu32(buf, 7 + 14 + 4 * i) >> 6) & 0xffffff;
+    }
 
-    return gpsd_interpret_subframe(session, prn, words);
+    return gpsd_interpret_subframe(session, GNSSID_GPS, prn, words);
 }
 
 static gps_mask_t decode_itk_pseudo(struct gps_device_t *session,
@@ -422,25 +423,24 @@ static gps_mask_t italk_parse(struct gps_device_t *session,
 
 static gps_mask_t italk_parse_input(struct gps_device_t *session)
 {
-    if (session->lexer.type == ITALK_PACKET) {
+    if (ITALK_PACKET == session->lexer.type) {
         return italk_parse(session, session->lexer.outbuffer,
                            session->lexer.outbuflen);;
-#ifdef NMEA0183_ENABLE
-    } else if (session->lexer.type == NMEA_PACKET) {
+    }
+    if (NMEA_PACKET == session->lexer.type) {
         return nmea_parse((char *)session->lexer.outbuffer, session);
-#endif /* NMEA0183_ENABLE */
-    } else
-        return 0;
+    }
+    return 0;
 }
 
 #ifdef __UNUSED__
+// send a "ping". it may help us detect an itrax more quickly
 static void italk_ping(struct gps_device_t *session)
-/* send a "ping". it may help us detect an itrax more quickly */
 {
     char *ping = "<?>";
     (void)gpsd_write(session, ping, 3);
 }
-#endif /* __UNUSED__ */
+#endif  // __UNUSED__
 
 /* *INDENT-OFF* */
 const struct gps_type_t driver_italk =

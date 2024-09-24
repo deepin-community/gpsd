@@ -246,12 +246,12 @@ static gps_mask_t greis_msg_PV(struct gps_device_t *session,
     session->newdata.ecef.vAcc = v_sigma;
 
     /* GREIS Reference Guide 3.4.2 "General Notes" part "Solution Types" */
-    if (solution_type > 0 && solution_type < 5) {
+    if (0 < solution_type && 5 > solution_type) {
         session->newdata.mode = MODE_3D;
         if (solution_type > 1)
-            session->newdata.status = STATUS_DGPS_FIX;
+            session->newdata.status = STATUS_DGPS;
         else
-            session->newdata.status = STATUS_FIX;
+            session->newdata.status = STATUS_GPS;
     }
 
     GPSD_LOG(LOG_DATA, &session->context->errout,
@@ -843,8 +843,8 @@ static gps_mask_t greis_msg_ET(struct gps_device_t *session,
      * Waited until now to avoid the startup rush and out of
      * critical time path
      */
-    if (0 == strlen(session->subtype)) {
-        /* get version */
+    if (0 == strnlen(session->subtype, sizeof(session->subtype))) {
+        // get version
         (void)greis_write(session, get_ver, sizeof(get_ver) - 1);
     }
     /* The driver waits for ET to send any reports
@@ -1076,15 +1076,14 @@ static void greis_event_hook(struct gps_device_t *session, event_t event)
  */
 static gps_mask_t greis_parse_input(struct gps_device_t *session)
 {
-    if (session->lexer.type == GREIS_PACKET) {
+    if (GREIS_PACKET == session->lexer.type) {
         return greis_dispatch(session, session->lexer.outbuffer,
                               session->lexer.outbuflen);
-#ifdef NMEA0183_ENABLE
-    } else if (session->lexer.type == NMEA_PACKET) {
+    }
+    if (NMEA_PACKET == session->lexer.type) {
         return nmea_parse((char *)session->lexer.outbuffer, session);
-#endif /* NMEA0183_ENABLE */
-    } else
-        return 0;
+    }
+    return 0;
 }
 
 /**
@@ -1095,7 +1094,7 @@ static gps_mask_t greis_parse_input(struct gps_device_t *session)
 static bool greis_set_speed(struct gps_device_t *session,
                             speed_t speed, char parity, int stopbits)
 {
-    /* change on current port */
+    // change on current port
     static const char set_rate[] = "set,/par/cur/term/rate,";
     static const char set_parity[] = "set,/par/cur/term/parity,";
     static const char set_stops[] = "set,/par/cur/term/stops,";
@@ -1126,7 +1125,8 @@ static bool greis_set_speed(struct gps_device_t *session,
     (void)snprintf(command, sizeof(command) - 1, "%s%lu && %s%s && %s%d",
              set_rate, (unsigned long)speed, set_parity, selected_parity,
              set_stops, stopbits);
-    return (bool)greis_write(session, command, strlen(command));
+    return (bool)greis_write(session, command,
+                             strnlen(command, sizeof(command)));
 }
 
 #if 0

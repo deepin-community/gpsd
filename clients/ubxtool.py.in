@@ -253,7 +253,8 @@ parser.add_argument(
     default=2.0,
     metavar='WAIT',
     type=float,
-    help='Wait for WAIT seconds before exiting.. [Default %(default)s]',
+    help=('Wait for WAIT seconds before exiting. Zero waits forever.\n'
+          '[Default %(default)s]'),
 )
 parser.add_argument(
     '-x', '--delitem',
@@ -464,8 +465,8 @@ try:
             badarg = True
         else:
             data_or = reduce(operator.or_, cmd_data)
-            badarg = data_or != data_or & 0xFF
-        if badarg or len(cmd_list) < 2:
+            badarg = data_or & 0xFF != data_or
+        if badarg or 2 > len(cmd_list):
             sys.stderr.write('%s: Argument format (hex bytes) is'
                              ' class,id[,payload...]\n' % PROG_NAME)
             sys.exit(1)
@@ -537,7 +538,8 @@ try:
         gps_model.send_cfg_valset(nvs)
 
     exit_code = io_handle.read(gps_model.decode_msg,  # decode function
-                               opts['input_wait'])    # raw input
+                               opts['input_wait'],
+                               raw_fd=raw)    # raw input
 
     if ((gps.VERB_RAW <= opts['verbosity']) and io_handle.out):
         # dump raw left overs

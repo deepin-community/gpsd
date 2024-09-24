@@ -30,14 +30,15 @@ PERMISSIONS
 #include "../include/gpsd.h"
 #include "../include/libgps.h"
 
-struct privdata_t
-{
-    void *shmseg;
-    int tick;
-};
 
-
-/* open a shared-memory connection to the daemon */
+/* open a shared-memory connection to the daemon
+ *
+ * Return: 0 == OK
+ *        less than zero is an error
+ *         -1 shmget() error
+ *         -2 shmat() error
+ *         -3 calloc() error
+ */
 int gps_shm_open(struct gps_data_t *gpsdata)
 {
     int shmid;
@@ -49,18 +50,25 @@ int gps_shm_open(struct gps_data_t *gpsdata)
 
     gpsdata->privdata = NULL;
     shmid = shmget((key_t)shmkey, sizeof(struct gps_data_t), 0);
-    if (shmid == -1) {
-        /* daemon isn't running or failed to create shared segment */
+    if (-1 == shmid) {
+        // daemon isn't running or failed to create shared segment
+        libgps_debug_trace((DEBUG_CALLS, "gps_shm_open(x%lx) %s(%d)\n",
+                            (unsigned long)shmkey, strerror(errno),  errno));
         return -1;
     }
-    gpsdata->privdata = (void *)malloc(sizeof(struct privdata_t));
-    if (gpsdata->privdata == NULL)
-        return -1;
+    gpsdata->privdata =
+        (struct privdata_t *)calloc(1, sizeof(struct privdata_t));
+    if (NULL == gpsdata->privdata) {
+        libgps_debug_trace((DEBUG_CALLS, "calloc() %s(%d)\n",
+                            strerror(errno),  errno));
+        return -3;
+    }
 
-    PRIVATE(gpsdata)->tick = 0;
     PRIVATE(gpsdata)->shmseg = shmat(shmid, 0, 0);
-    if (PRIVATE(gpsdata)->shmseg == (void *) -1) {
-        /* attach failed for sume unknown reason */
+    if ((void *)-1 == PRIVATE(gpsdata)->shmseg) {
+        // attach failed for sume unknown reason
+        libgps_debug_trace((DEBUG_CALLS, "shmat() %s(%d)\n",
+                            strerror(errno),  errno));
         free(gpsdata->privdata);
         gpsdata->privdata = NULL;
         return -2;
@@ -69,12 +77,12 @@ int gps_shm_open(struct gps_data_t *gpsdata)
     gpsdata->gps_fd = SHM_PSEUDO_FD;
 #else
     gpsdata->gps_fd = (void *)(intptr_t)SHM_PSEUDO_FD;
-#endif /* USE_QT */
+#endif  // USE_QT
     return 0;
 }
 
-/* check to see if new data has been written */
-/* timeout is in uSec */
+/* check to see if new data has been written
+ * timeout is in uSec */
 bool gps_shm_waiting(const struct gps_data_t *gpsdata, int timeout)
 {
     volatile struct shmexport_t *shared =
@@ -87,7 +95,7 @@ bool gps_shm_waiting(const struct gps_data_t *gpsdata, int timeout)
     endtime.tv_nsec += (timeout % 1000000) * 1000;
     TS_NORM(&endtime);
 
-    /* busy-waiting sucks, but there's not really an alternative */
+    // busy-waiting sucks, but there's not really an alternative
     for (;;) {
         volatile int bookend1, bookend2;
         timespec_t now;
@@ -110,16 +118,15 @@ bool gps_shm_waiting(const struct gps_data_t *gpsdata, int timeout)
     return newdata;
 }
 
+// read an update from the shared-memory segment
 int gps_shm_read(struct gps_data_t *gpsdata)
-/* read an update from the shared-memory segment */
 {
-    if (gpsdata->privdata == NULL)
+    if (NULL == gpsdata->privdata) {
         return -1;
-    else
-    {
-        int before, after;
-        void *private_save = gpsdata->privdata;
-        volatile struct shmexport_t *shared =
+    } else {
+        int before1, before2, after1, after2;
+        struct privdata_t *private_save = gpsdata->privdata;
+        struct shmexport_t *shared =
             (struct shmexport_t *)PRIVATE(gpsdata)->shmseg;
         struct gps_data_t noclobber;
 
@@ -127,24 +134,37 @@ int gps_shm_read(struct gps_data_t *gpsdata)
          * Following block of instructions must not be reordered,
          * otherwise havoc will ensue.  The memory_barrier() call
          * should prevent reordering of the data accesses.
+         * for those lucky enough to have a working memory_barrier()
+         *
+         * bookends are volatile, so that should force
+         * them to be read in order.
          *
          * This is a simple optimistic-concurrency technique.  We wrote
          * the second bookend first, then the data, then the first bookend.
          * Reader copies what it sees in normal order; that way, if we
          * start to write the segment during the read, the second bookend will
          * get clobbered first and the data can be detected as bad.
+         *
+         * Excwpt with mutil-treading and CPU caches, order is iffy...
          */
-        before = shared->bookend1;
+        before1 = shared->bookend1;
+        before2 = shared->bookend2;
         memory_barrier();
+        // memcpy() and (volatile) don't play well together.
         (void)memcpy((void *)&noclobber,
                      (void *)&shared->gpsdata,
                      sizeof(struct gps_data_t));
         memory_barrier();
-        after = shared->bookend2;
+        after1 = shared->bookend1;
+        after2 = shared->bookend2;
 
-        if (before != after)
+        if (before1 != after1 ||
+            before1 != after2 ||
+            before1 != before2) {
+            // bookend mismatch, throw away the data
+            // FIXME: retry?
             return 0;
-        else {
+        } else {
             (void)memcpy((void *)gpsdata,
                          (void *)&noclobber,
                          sizeof(struct gps_data_t));
@@ -153,9 +173,9 @@ int gps_shm_read(struct gps_data_t *gpsdata)
             gpsdata->gps_fd = SHM_PSEUDO_FD;
 #else
             gpsdata->gps_fd = (void *)(intptr_t)SHM_PSEUDO_FD;
-#endif /* USE_QT */
-            PRIVATE(gpsdata)->tick = after;
-            if ((gpsdata->set & REPORT_IS)!=0) {
+#endif  // USE_QT
+            PRIVATE(gpsdata)->tick = after2;
+            if (0 != (gpsdata->set & REPORT_IS)) {
                 gpsdata->set = STATUS_SET;
             }
             return (int)sizeof(struct gps_data_t);
@@ -166,33 +186,42 @@ int gps_shm_read(struct gps_data_t *gpsdata)
 void gps_shm_close(struct gps_data_t *gpsdata)
 {
     if (PRIVATE(gpsdata)) {
-        if (PRIVATE(gpsdata)->shmseg != NULL)
+        if (NULL != PRIVATE(gpsdata)->shmseg) {
             (void)shmdt((const void *)PRIVATE(gpsdata)->shmseg);
+        }
         free(PRIVATE(gpsdata));
         gpsdata->privdata = NULL;
     }
 }
 
+/* run a shm main loop with a specified handler
+ *
+ * Returns: -1 on timeout
+ *          -2 on error
+ * FIXME: read error should return different than timeout
+ */
 int gps_shm_mainloop(struct gps_data_t *gpsdata, int timeout,
-                         void (*hook)(struct gps_data_t *gpsdata))
-/* run a shm main loop with a specified handler */
+                     void (*hook)(struct gps_data_t *gpsdata))
 {
+
     for (;;) {
+        int status;
+
         if (!gps_shm_waiting(gpsdata, timeout)) {
             return -1;
-        } else {
-            int status = gps_shm_read(gpsdata);
+        }
+        status = gps_shm_read(gpsdata);
 
-            if (status == -1)
-                return -1;
-            if (status > 0)
-                (*hook)(gpsdata);
+        if (-1 == status) {
+            break;
+        }
+        if (0 < status) {
+            (*hook)(gpsdata);
         }
     }
-    //return 0;
+    return -2;
 }
 
-#endif /* SHM_EXPORT_ENABLE */
+#endif  // SHM_EXPORT_ENABLE
 
-/* end */
 // vim: set expandtab shiftwidth=4

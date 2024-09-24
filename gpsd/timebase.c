@@ -191,7 +191,7 @@ SPDX-License-Identifier: BSD-2-clause
 
 *****************************************************************************/
 
-#include "../include/gpsd_config.h"  /* must be before all includes */
+#include "../include/gpsd_config.h"   // must be before all includes
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -199,8 +199,8 @@ SPDX-License-Identifier: BSD-2-clause
 
 #include "../include/gpsd.h"
 
+// initialize the GPS context's time fields
 void gpsd_time_init(struct gps_context_t *context, time_t starttime)
-/* initialize the GPS context's time fields */
 {
     /*
      * gpsd can't work with 'right' timezones (leapseconds inserted in
@@ -220,13 +220,14 @@ void gpsd_time_init(struct gps_context_t *context, time_t starttime)
     context->century = BUILD_CENTURY;
     context->start_time = starttime;
 
-    context->rollovers = (int)((context->start_time-GPS_EPOCH) / GPS_ROLLOVER);
+    context->rollovers = (int)((context->start_time - GPS_EPOCH) /
+                               GPS_ROLLOVER);
 
     if (GPS_EPOCH > context->start_time) {
         GPSD_LOG(LOG_ERROR, &context->errout,
                  "system time looks bogus, dates may not be reliable.\n");
     } else {
-        /* we've forced the UTC timezone, so this is actually UTC */
+        // we've forced the UTC timezone, so this is actually UTC
         struct tm *now = localtime(&context->start_time);
         char scr[128];
         timespec_t ts_start_time;
@@ -246,27 +247,58 @@ void gpsd_time_init(struct gps_context_t *context, time_t starttime)
     }
 }
 
-void gpsd_set_century(struct gps_device_t *session)
 /*
- * Interpret "Date: yyyy-mm-dd", setting the session context
- * century from the year.  We do this so the behavior of the
- * regression tests won't depend on what century the daemon
- * started up in.
+ * Interpret "#Date: yyyy-mm-dd", setting the session context
+ * start time.  We do this so the behavior of the
+ * regression tests won't depend on current system time.
  */
+void gpsd_set_century(struct gps_device_t *session)
 {
-    char *end;
-    if (strstr((char *)session->lexer.outbuffer, "Date:") != NULL) {
-        int year;
-        unsigned char *cp = session->lexer.outbuffer + 5;
-        while (isspace(*cp))
-            ++cp;
-        year = (int)strtol((char *)cp, &end, 10);
-        session->context->century = year - (year % 100);
+    int ret;
+    unsigned year = 0;
+    unsigned month = 0;
+    unsigned day = 0;
+    struct gps_context_t *context = session->context;
+    struct tm date = {0};
+
+    ret = sscanf((const char *)session->lexer.outbuffer, "# Date: %u-%u-%u",
+                 &year, &month, &day);
+    if (1 > ret) {
+        // give up unless we at least got a year
+        return;
     }
+
+    if (1968 > year ||
+        2200 < year) {
+        // bad year
+        return;
+    }
+
+    context->century = year - (year % 100);
+
+    date.tm_year = year - 1900;                // year, 1999..2099
+    if (1 > month ||
+        12 < month) {
+        month = 1;
+    }
+    date.tm_mon = month;                       // month 1..12
+    if (1 > day ||
+        31 < day) {
+        day = 1;
+    }
+    date.tm_mday = day;                        // day 1..31
+    context->start_time = mkgmtime(&date);
+    context->rollovers = (int)((context->start_time - GPS_EPOCH) /
+                               GPS_ROLLOVER);
+
+    GPSD_LOG(LOG_PROG, &context->errout,
+             "Setting century: %d rollovers %d %d-%d-%d\n",
+             context->century, context->rollovers, year, month, day);
+
+    gpsd_time_init(context, context->start_time);
 }
 
-#ifdef NMEA0183_ENABLE
-/* resolve a UTC date, checking for rollovers */
+// resolve a UTC date, checking for rollovers
 timespec_t gpsd_utc_resolve(struct gps_device_t *session)
 {
     /*
@@ -276,7 +308,6 @@ timespec_t gpsd_utc_resolve(struct gps_device_t *session)
      * this will be hairy and risky.
      */
     timespec_t t;
-    char scr[128];
 
     t.tv_sec = (time_t)mkgmtime(&session->nmea.date);
     t.tv_nsec = session->nmea.subseconds.tv_nsec;
@@ -286,8 +317,9 @@ timespec_t gpsd_utc_resolve(struct gps_device_t *session)
      * If the system clock is zero or has a small-integer value,
      * no further sanity-checking is possible.
      */
-    if (session->context->start_time < GPS_EPOCH)
+    if (GPS_EPOCH > session->context->start_time) {
         return t;
+    }
 
     /* sanity check unix time against leap second.
      * Does not work well with regressions because the leap_sconds
@@ -297,6 +329,8 @@ timespec_t gpsd_utc_resolve(struct gps_device_t *session)
     if (17 < session->context->leap_seconds &&
         1483228800LL > t.tv_sec) {
         long long old_tv_sec = t.tv_sec;
+        char scr[128];
+
         t.tv_sec += 619315200LL;                    // fast forward 1024 weeks
         (void)gmtime_r(&t.tv_sec, &session->nmea.date);   // fix NMEA date
         (void)timespec_to_iso8601(t, scr, sizeof(scr));
@@ -308,19 +342,9 @@ timespec_t gpsd_utc_resolve(struct gps_device_t *session)
     }
 
     /*
-     * If the GPS is reporting a time from before the daemon started, we've
-     * had a rollover event while the daemon was running.
+     * If the GPS is reporting a time from before the daemon started,
+     * maybe we've had a rollover event while the daemon was running.
      */
-#ifdef __UNUSED__
-    // 5 Dec 2019
-    // This fails ALL regression tests as start time after regression added
-    if (t.tv_sec < (time_t)session->context->start_time) {
-        (void)timespec_to_iso8601(t, scr, sizeof(scr));
-        GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "GPS week rollover makes time %s (%lld) invalid\n",
-                 scr, (long long)t.tv_sec);
-    }
-#endif  // __UNUSED__
 
     return t;
 }
@@ -339,8 +363,8 @@ void gpsd_century_update(struct gps_device_t *session, int century)
         GPSD_LOG(LOG_WARN, &session->context->errout,
                  "century rollover detected.\n");
         session->context->century = century;
-    } else if (session->context->start_time >=
-               GPS_EPOCH && century < session->context->century) {
+    } else if (GPS_EPOCH <= session->context->start_time &&
+               century < session->context->century) {
         /*
          * This looks like a GPS week-counter rollover.
          */
@@ -350,9 +374,51 @@ void gpsd_century_update(struct gps_device_t *session, int century)
         session->context->valid &=~ CENTURY_VALID;
     }
 }
-#endif /* NMEA0183_ENABLE */
 
-/* gpsd_gpstime_resolv() convert week/tow to UTC as a timespec
+/* gpsd_gpstime() convert GPS week/tow to "GPS time"
+ * "GPS time" as defined by RINEX:  GPS time + leap secods == UTC
+ *
+ * Use for time that is not "time now in UTC".
+ * Do not touch: gps_week, gps_tow, GPS_VALID, rollovers in context.
+ */
+timespec_t gpsd_gpstime(struct gps_device_t *session,
+                        unsigned week, timespec_t tow)
+{
+    timespec_t t;
+
+    if (1024 <= week) {
+        // we have a full, not truncated, week
+    } else {
+        // truncated week, add in the roll overs
+        week += session->context->rollovers * 1024;
+    }
+
+    // gcc needs the (time_t)week to not overflow. clang got it right.
+    // if time_t is 32-bits, then still 2038 issues
+    // no leap seconds
+    t.tv_sec = GPS_EPOCH + ((time_t)week * SECS_PER_WEEK) + tow.tv_sec;
+    t.tv_nsec = tow.tv_nsec;
+
+#if 4 < SIZEOF_TIME_T
+    // 2038 rollover hack for unsigned 32-bit time, assuming today is < 2038
+    if (0 > t.tv_sec) {
+        // recompute for previous EPOCH
+        week -= 1024;
+        t.tv_sec = GPS_EPOCH + ((time_t)week * SECS_PER_WEEK) + tow.tv_sec;
+        GPSD_LOG(LOG_WARN, &session->context->errout,
+                 "gpsd_gpstime(): 2038 rollover. Adjusting to %lld week %u\n",
+                 (long long)t.tv_sec, week);
+    }
+#endif   // SIZEOF_TIME_T
+
+    return t;
+}
+
+/* gpsd_gpstime_resolv() convert GPS week/tow to UTC as a timespec
+ * using current leap second.
+ *
+ * Sets gps_week, gps_tow, GPS_VALID, rollovers, in context.
+ * FIXME: this prolly should call gpsd_resolv() instead of duplicating it.
  */
 timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
                                unsigned week, timespec_t tow)
@@ -367,9 +433,10 @@ timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
      * to 13 bits.
      */
     if ((int)week < (session->context->gps_week & 0x3ff)) {
-        GPSD_LOG(LOG_INF, &session->context->errout,
-                 "GPS week 10-bit rollover detected.\n");
         ++session->context->rollovers;
+        GPSD_LOG(LOG_INF, &session->context->errout,
+                 "GPS week %u 10-bit rollover detected. rollovers %d\n",
+                 week, session->context->rollovers);
     }
 
     /*
@@ -380,22 +447,16 @@ timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
      * (notably 231) actually ship the wrapped 10-bit week, despite what
      * the protocol reference claims.
      */
-    if (week < 1024)
+    if (1024 > week) {
         week += session->context->rollovers * 1024;
-
-    /* sanity check week number, GPS epoch, against leap seconds
-     * Does not work well with regressions because the leap_sconds
-     * could be from the receiver, or from BUILD_LEAPSECONDS. */
-    if (0 < session->context->leap_seconds &&
-        19 > session->context->leap_seconds &&
-        2180 < week) {
-        /* assume leap second = 19 by 31 Dec 2022
-         * so week > 2180 is way in the future, do not allow it */
-        week -= 1024;
-        GPSD_LOG(LOG_WARN, &session->context->errout,
-                 "GPS week confusion. Adjusted week %u for leap %d\n",
-                 week, session->context->leap_seconds);
     }
+
+    /* This used to sanity check week number, GPS epoch, against leap
+     * seconds.  Did not work well with regressions because the leap_sconds
+     * could be from the receiver, or from BUILD_LEAPSECONDS.
+     * Maybe if the regressions files provided BUILD_LEAPSECONDS this
+     * could be tried again.
+     */
 
     // gcc needs the (time_t)week to not overflow. clang got it right.
     // if time_t is 32-bits, then still 2038 issues
@@ -403,6 +464,7 @@ timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
     t.tv_sec -= session->context->leap_seconds;
     t.tv_nsec = tow.tv_nsec;
 
+#if 4 < SIZEOF_TIME_T
     // 2038 rollover hack for unsigned 32-bit time, assuming today is < 2038
     if (0 > t.tv_sec) {
         // recompute for previous EPOCH
@@ -414,6 +476,7 @@ timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
                  (long long)t.tv_sec, week,
                  session->context->leap_seconds);
     }
+#endif   // SIZEOF_TIME_T
 
     session->context->gps_week = week;
     session->context->gps_tow = tow;
@@ -422,5 +485,4 @@ timespec_t gpsd_gpstime_resolv(struct gps_device_t *session,
     return t;
 }
 
-/* end */
 // vim: set expandtab shiftwidth=4

@@ -178,14 +178,14 @@ class TestLoad(object):
         while True:
             # Note that packet data is bytes rather than str
             (plen, ptype, packet, _counter) = getter.get(logfp.fileno())
-            if plen <= 0:
+            if 0 >= plen:
                 break
 
-            if ptype == sniffer.COMMENT_PACKET:
+            if sniffer.COMMENT_PACKET == ptype:
                 commentlen += len(packet)
                 # Some comments are magic
                 if b"Serial:" in packet:
-                    # Change serial parameters
+                    # "#Serial:' -- Change serial parameters
                     packet = packet[1:].strip()
                     try:
                         (_xx, baud, params) = packet.split()
@@ -207,10 +207,13 @@ class TestLoad(object):
                                             self.name)
                     self.serial = (baud, databits, parity, stopbits)
                 elif b"Transport: UDP" in packet:
+                    # "#Transport:'
                     self.sourcetype = "UDP"
                 elif b"Transport: TCP" in packet:
+                    # "#Transport:'
                     self.sourcetype = "TCP"
                 elif b"Delay-Cookie:" in packet:
+                    # "#Delay-Cookie:'
                     if packet.startswith(b"#"):
                         packet = packet[1:]
                     try:
@@ -221,6 +224,10 @@ class TestLoad(object):
                         raise TestLoadError("bad Delay-Cookie line in %s" %
                                             self.name)
                     self.resplit = True
+                elif b"Date:" in packet:
+                    # "# Date: yyyy-mm-dd' -- preset date
+                    self.sentences.append(packet)
+                # drop all other comments silently
             else:
                 if type_latch is None:
                     type_latch = ptype
@@ -231,7 +238,7 @@ class TestLoad(object):
                                         self.name)
                 self.sentences.append(packet)
         # Look at the first packet to grok the GPS type
-        self.textual = (type_latch == sniffer.NMEA_PACKET)
+        self.textual = (sniffer.NMEA_PACKET == type_latch)
         if self.textual:
             self.legend = "gpsfake: line %d: "
         else:
@@ -328,17 +335,17 @@ class FakePTY(FakeGPS):
         iflag &= ~ (termios.PARMRK | termios.INPCK)
         cflag &= ~ (termios.CSIZE | termios.CSTOPB | termios.PARENB |
                     termios.PARODD)
-        if databits == 7:
+        if 7 == databits:
             cflag |= termios.CS7
         else:
             cflag |= termios.CS8
-        if stopbits == 2:
+        if 2 == stopbits:
             cflag |= termios.CSTOPB
         # Warning: attempting to set parity makes Fedora lose its cookies
-        if parity == 'E':
+        if 'E' == parity:
             iflag |= termios.INPCK
             cflag |= termios.PARENB
-        elif parity == 'O':
+        elif 'O' == parity:
             iflag |= termios.INPCK
             cflag |= termios.PARENB | termios.PARODD
         ispeed = ospeed = baudrates[speed]
@@ -684,11 +691,11 @@ class TestSession(object):
         if logfile not in self.fakegpslist:
             testload = TestLoad(logfile, predump=self.predump, slow=self.slow,
                                 oneshot=oneshot)
-            if testload.sourcetype == "UDP" or self.udp:
+            if "UDP" == testload.sourcetype or self.udp:
                 newgps = FakeUDP(testload, ipaddr="127.0.0.1",
                                  port=freeport(socket.SOCK_DGRAM),
                                  progress=self.progress)
-            elif testload.sourcetype == "TCP" or self.tcp:
+            elif "TCP" == testload.sourcetype or self.tcp:
                 # Let OS assign the port
                 newgps = FakeTCP(testload, host="127.0.0.1", port=0,
                                  progress=self.progress)
@@ -782,7 +789,7 @@ class TestSession(object):
                         raise SystemExit(1)
 
                     if not chosen.go_predicate(chosen.index, chosen):
-                        if chosen.exhausted == 0:
+                        if 0 == chosen.exhausted:
                             chosen.exhausted = time.time()
                             self.progress("gpsfake: GPS %s ran out of input\n"
                                           % chosen.byname)
@@ -803,8 +810,8 @@ class TestSession(object):
                         if not chosen.valid & gps.PACKET_SET:
                             continue
                         self.reporter(gps.polybytes(chosen.bresponse))
-                        if ((chosen.data["class"] == "DEVICE" and
-                             chosen.data["activated"] == 0 and
+                        if (("DEVICE" == chosen.data["class"] and
+                             0 == chosen.data["activated"] and
                              chosen.data["path"] in self.fakegpslist)):
                             self.gps_remove(chosen.data["path"])
                             self.progress(

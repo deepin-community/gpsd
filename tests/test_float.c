@@ -4,7 +4,9 @@
  * This file is Copyright 2010 by the GPSD project
  * SPDX-License-Identifier: BSD-2-clause
  */
-#include <stdio.h>
+#include <fenv.h>         // for fegetround()
+#include <stdio.h>        // for puts(), printf()
+#include <string.h>       // for strncmp()
 
 /*
  * this simple program tests to see whether your system can do proper
@@ -15,278 +17,355 @@
  * Added in 2015 by ESR: Test for C99 behavior on negative operand(s)
  * of %, that is the result should have the sign of the left operand.
  *
+ * Added in 2021 by GEM, Test for printf() rounding
+ *
  * compile with: gcc -O -o test_float test_float.c
  *     (use whatever -O level you like)
  */
 
-int main(void);
-int test_single(void);
-int test_double(void);
-int test_modulo(void);
-
-int main(void) {
-    int i, j, k;
-
-	if ((i = test_single()))
-		printf("WARNING: Single-precision "
-			"floating point math might be broken\n");
-
-	if ((j = test_double()))
-		printf("WARNING: Double-precision "
-			"floating point math might be broken\n");
-
-	if ((k = test_modulo()))
-		printf("WARNING: Modular arithmetic is broken\n");
-
-	i += j;
-	i += k;
-	if (i == 0)
-		printf("floating point and modular math appears to work\n");
-	return i;
-}
-
-int test_single(void) {
+static int test_single(void) {
 	static float f;
 	static int i;
 	static int e = 0;
 
-	/* addition test */
+	// addition test
 	f = 1.0;
-	for(i = 0; i < 10; i++)
-		f += (1<<i);
-	if (f != 1024.0) {
-		printf("s1 ");
+	for(i = 0; i < 10; i++) {
+		f += (1 << i);
+        }
+	if (1024.0 != f) {
+		puts("s1 ");
 		e++;
 	}
 
-	/* subtraction test */
+	// subtraction test
 	f = 1024.0;
-	for(i = 0; i < 10; i++)
-		f -= (1<<i);
-	if (f != 1.0) {
-		printf("s2 ");
+	for(i = 0; i < 10; i++) {
+		f -= (1 << i);
+        }
+	if (1.0 != f) {
+		puts("s2 ");
 		e++;
 	}
 
-	/* multiplication test */
+	// multiplication test
 	f = 1.0;
-	for(i = 1; i < 10; i++)
+	for(i = 1; i < 10; i++) {
 		f *= i;
-	if (f != 362880.0) {
-		printf("s3 ");
+        }
+	if (362880.0 != f) {
+		puts("s3 ");
 		e++;
 	}
 
-	/* division test */
+	// division test
 	f = 362880.0;
-	for(i = 1; i < 10; i++)
+	for(i = 1; i < 10; i++) {
 		f /= i;
-	if (f != 1.0) {
-		printf("s4 ");
+        }
+	if (1.0 != f) {
+		puts("s4 ");
 		e++;
 	}
 
-	/* multiply-accumulate test */
+	// multiply-accumulate test
 	f = 0.5;
 	for(i = 1; i < 1000000; i++) {
 		f += 2.0;
 		f *= 0.5;
 	}
 	if (f != 2.0) {
-		printf("s5 ");
+		puts("s5 ");
 		e++;
 	}
 
-	/* divide-subtract test */
+	// divide-subtract test
 	f = 2.0;
 	for(i = 1; i < 1000000; i++) {
 		f /= 0.5;
 		f -= 2.0;
 	}
-	if (f != 2.0) {
-		printf("s6 ");
+	if (2.0 != f) {
+		puts("s6 ");
 		e++;
 	}
 
-	/* add-multiply-subtract-divide test */
+	// add-multiply-subtract-divide test
 	f = 1000000.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f + 1.5) * 0.5) - 1.25) / 0.5);
-	if (f != 1.0) {
-		printf("s7 ");
+        }
+	if (1.0 != f) {
+		puts("s7 ");
 		e++;
 	}
 
-	/* multiply-add-divide-subtract test */
+	// multiply-add-divide-subtract test
 	f = 1.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f * 5.0) + 3.0) / 2.0) - 3.0);
-	if (f != 1.0)
-		printf("s8 ");
+        }
+	if (1.0 != f) {
+		puts("s8 ");
+        }
 
-	/* subtract-divide-add-multiply test */
+	// subtract-divide-add-multiply test
 	f = 8.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f - 5.0) / 2.0) + 2.5) * 2.0);
-	if (f != 8.0) {
-		printf("s9 ");
+        }
+	if (8.0 != f) {
+		puts("s9 ");
 		e++;
 	}
 
-	/* divide-subtract-multiply-add test */
+	// divide-subtract-multiply-add test
 	f = 42.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f / 6.0) - 5.0) * 19.75 ) + 2.5);
-	if (f != 42.0) {
-		printf("s10 ");
+        }
+	if (42.0 != f) {
+		puts("s10 ");
 		e++;
 	}
 	if (e) {
-		printf("\n");
-		return 1;
+		puts("\n");
 	}
-	return 0;
+	return e;
 }
 
-
-int test_double(void) {
+static int test_double(void) {
 	static double f;
 	static int i;
 	static int e = 0;
 
-	/* addition test */
+	// addition test
 	f = 1.0;
 	for(i = 0; i < 10; i++)
 		f += (1<<i);
 	if (f != 1024.0) {
-		printf("d1 ");
+		puts("d1 ");
 		e++;
 	}
 
-	/* subtraction test */
+	// subtraction test
 	f = 1024.0;
-	for(i = 0; i < 10; i++)
+	for(i = 0; i < 10; i++) {
 		f -= (1<<i);
-	if (f != 1.0) {
-		printf("d2 ");
+        }
+	if (1.0 != f) {
+		puts("d2 ");
 		e++;
 	}
 
-	/* multiplication test */
+	// multiplication test
 	f = 1.0;
-	for(i = 1; i < 10; i++)
+	for(i = 1; i < 10; i++) {
 		f *= i;
-	if (f != 362880.0) {
-		printf("d3 ");
+        }
+	if (362880.0 != f) {
+		puts("d3 ");
 		e++;
 	}
 
-	/* division test */
+	// division test
 	f = 362880.0;
-	for(i = 1; i < 10; i++)
+	for(i = 1; i < 10; i++) {
 		f /= i;
-	if (f != 1.0) {
-		printf("d4 ");
+        }
+	if (1.0 != f) {
+		puts("d4 ");
 		e++;
 	}
 
-	/* multiply-accumulate test */
+	// multiply-accumulate test
 	f = 0.5;
 	for(i = 1; i < 1000000; i++) {
 		f += 2.0;
 		f *= 0.5;
 	}
-	if (f != 2.0) {
-		printf("d5 ");
+	if (2.0 != f) {
+		puts("d5 ");
 		e++;
 	}
 
-	/* divide-subtract test */
+	// divide-subtract test
 	f = 2.0;
 	for(i = 1; i < 1000000; i++) {
 		f /= 0.5;
 		f -= 2.0;
 	}
-	if (f != 2.0) {
-		printf("d6 ");
+	if (2.0 != f) {
+		puts("d6 ");
 		e++;
 	}
 
-	/* add-multiply-subtract-divide test */
+	// add-multiply-subtract-divide test
 	f = 1000000.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f + 1.5) * 0.5) - 1.25) / 0.5);
-	if (f != 1.0) {
-		printf("d7 ");
+        }
+	if (1.0 != f) {
+		puts("d7 ");
 		e++;
 	}
 
-	/* multiply-add-divide-subtract test */
+	// multiply-add-divide-subtract test
 	f = 1.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f * 5.0) + 3.0) / 2.0) - 3.0);
-	if (f != 1.0)
-		printf("d8 ");
+        }
+	if (1.0 != f) {
+		puts("d8 ");
+        }
 
-	/* subtract-divide-add-multiply test */
+	// subtract-divide-add-multiply test
 	f = 8.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f - 5.0) / 2.0) + 2.5) * 2.0);
-	if (f != 8.0) {
-		printf("d9 ");
+        }
+	if (8.0 != f) {
+		puts("d9 ");
 		e++;
 	}
 
-	/* divide-subtract-multiply-add test */
+	// divide-subtract-multiply-add test
 	f = 42.0;
-	for(i = 1; i < 1000000; i++)
+	for(i = 1; i < 1000000; i++) {
 		f = ((((f / 6.0) - 5.0) * 19.75 ) + 2.5);
-	if (f != 42.0) {
-		printf("d10 ");
+        }
+	if (42.0 != f) {
+		puts("d10 ");
 		e++;
 	}
 	if (e) {
-		printf("\n");
-		return 1;
+		puts("\n");
 	}
-	return 0;
+	return e;
 }
 
-int test_modulo(void) {
-    static int e = 0;
+static int test_modulo(void) {
+    int e = 0;
 
-    /* make sure that gcc does not optimize these away */
+    // make sure that gcc does not optimize these away
     volatile int a;
     volatile int b;
 
     a = -5;
     b = 2;
-    //cppcheck-suppress knownConditionTrueFalse
-    if (a % b != -1) {
-	printf("m1 ");
+    // cppcheck-suppress knownConditionTrueFalse
+    if (-1 != (a % b)) {
+	puts("m1 ");
 	e++;
     }
 
     a = -5;
     b = -2;
-    //cppcheck-suppress knownConditionTrueFalse
-    if (a % b != -1) {
-	printf("m2 ");
+    // cppcheck-suppress knownConditionTrueFalse
+    if (-1 != (a % b)) {
+	puts("m2 ");
 	e++;
     }
 
     a = 5;
     b = -2;
-    //cppcheck-suppress knownConditionTrueFalse
-    if (a % b != 1) {
-	printf("m3 ");
+    // cppcheck-suppress knownConditionTrueFalse
+    if (1 != (a % b)) {
+	puts("m3 ");
 	e++;
     }
 
+    // cppcheck-suppress knownConditionTrueFalse
     if (e) {
-	printf("\n");
-	return 1;
+	puts("\n");
     }
-    return 0;
+    return e;
+}
+
+struct printf_test
+{
+    double d;
+    const char *expected;
+};
+struct printf_test printf_test_tests[] = {
+    {-0.0015 - 1e-10, "-0.002"},
+    {-0.0015, "-0.002"},
+    {-0.0015 + 1e-10, "-0.001"},
+    {-0.0005 - 1e-10, "-0.001"},
+    {-0.0005, "-0.001"},
+    {-0.0005 + 1e-10, "-0.000"},
+    {0.0005 - 1e-10, "0.000"},
+    {0.0005, "0.001"},
+    {0.0005 + 1e-10, "0.001"},
+    {0.0015 - 1e-10, "0.001"},
+    {0.0015, "0.002"},
+    {0.0015 + 1e-10, "0.002"},
+    {0, NULL},
+};
+
+// POSIX just says "round", not which of the 4 possible POSIX rounding modes.
+static int test_printf(void)
+{
+    int e = 0;
+    char check[20];
+    int test_num;
+
+    for (test_num = 0; NULL != printf_test_tests[test_num].expected;
+         test_num++) {
+        snprintf(check, sizeof(check), "%.3f", printf_test_tests[test_num].d);
+        if (0 == strncmp(printf_test_tests[test_num].expected,
+                         check, sizeof(check))) {
+            continue;
+        }
+        if (0 == strncmp("0.000", check, sizeof(check)) &&
+            0 == strncmp("-0.000", printf_test_tests[test_num].expected,
+                         sizeof(check))) {
+            // special case 0.000 ok for -0.000
+            continue;
+        }
+        printf("p%d expected %s got %s\n", test_num,
+               printf_test_tests[test_num].expected, check);
+        e++;
+    }
+
+    return e;
+}
+
+int main(void) {
+    int errcnt = 0;
+    int val;
+
+    // test for C99 default rounding mode
+    val = fegetround();
+    if (0 != val) {
+        // 0, aka FE_DOWNWARD, which is not a required C99 define
+        printf("WARNING: Unsupported rounding mode %d\n", val);
+        errcnt++;
+    }
+
+    if (0 != test_single()) {
+        puts("WARNING: Single-precision floating point math might be broken\n");
+        errcnt++;
+    }
+
+    if (0 != test_double()) {
+        puts("WARNING: Double-precision floating point math might be broken\n");
+        errcnt++;
+    }
+
+    if (0 != test_modulo()) {
+        puts("WARNING: Modular arithmetic is broken\n");
+        errcnt++;
+    }
+
+    if (0 != test_printf()) {
+        puts("WARNING: printf() rounding is broken\n");
+        errcnt++;
+    }
+
+    if (0 == errcnt) {
+        puts("floating point and modular math appears to work\n");
+    }
+    return errcnt;
 }
 // vim: set expandtab shiftwidth=4

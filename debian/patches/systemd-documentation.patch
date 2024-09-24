@@ -1,0 +1,23 @@
+From: Boian Bonev <bbonev@ipacct.com>
+Date: Tue May 16 00:01:56 2023 +0000
+Subject: add documentation
+
+A simple man page reference
+--- a/systemd/gpsd.service.in
++++ b/systemd/gpsd.service.in
+@@ -1,5 +1,6 @@
+ [Unit]
+ Description=GPS (Global Positioning System) Daemon
++Documentation=man:gpsd
+ Requires=gpsd.socket
+ # Needed with chrony SOCK refclock
+ After=chronyd.service
+--- a/systemd/gpsdctl@.service.in
++++ b/systemd/gpsdctl@.service.in
+@@ -1,5 +1,6 @@
+ [Unit]
+ Description=Manage %I for GPS daemon
++Documentation=man:gpsd
+ Requires=gpsd.socket
+ BindsTo=dev-%i.device
+ After=dev-%i.device

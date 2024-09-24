@@ -1,5 +1,11 @@
 #!@PYSHEBANG@
 # @GENERATED@
+"""gpsfake -- test harness for gpsd.
+
+Simulates one or more GPSes, playing back logfiles.
+Most of the logic for this now lives in gps.fake,
+factored out so we can write other test programs with it.
+"""
 #
 #
 # This file is Copyright 2010 by the GPSD project
@@ -10,22 +16,22 @@
 # Codacy D203 and D211 conflict, I choose D203
 # Codacy D212 and D213 conflict, I choose D212
 
-"""gpsfake -- test harness for gpsd.
-
-Simulates one or more GPSes, playing back logfiles.
-Most of the logic for this now lives in gps.fake,
-factored out so we can write other test programs with it.
-"""
 from __future__ import absolute_import, print_function, division
 
-from distutils import spawn
 import argparse
 import os
 import platform
 import pty
+import shutil
 import socket
 import sys
 import time
+
+try:
+    fake_which = shutil.which  # Available in Python 3.3 and later
+except AttributeError:
+    import distutils.spawn  # Deprecated as of Python 3.10
+    fake_which = distutils.spawn.find_executable
 
 # pylint wants local modules last
 try:
@@ -106,7 +112,7 @@ def hexdump(s):
 
 def check_xterm():
     """Check whether xterm and DISPLAY are available."""
-    xterm = spawn.find_executable('xterm')
+    xterm = fake_which('xterm')
     return xterm and os.access(xterm, os.X_OK) and os.environ.get('DISPLAY')
 
 
@@ -382,16 +388,13 @@ if __name__ == '__main__':
         options.linedump = True
 
     # debug options to pass to gpsd
-    doptions = []
+    doptions = ''
     if options.debug:
-        for dopt in options.debug:
-            doptions.append("-D " + dopt)
-    if options.options:
-        for opt in options.options:
-            doptions.append(opt)
+        doptions += "-D " + options.debug[0] + " "
     if options.nowait:
-        doptions.append("-n")
-    doptions = ' '.join(doptions)
+        doptions += "-n "
+    if options.options:
+        doptions += options.options
 
     monitor = ()
     timeout = 0

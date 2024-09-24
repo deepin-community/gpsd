@@ -1,0 +1,3 @@
+# These are false positives
+typo-in-manual-page Lon Long *
+typo-in-manual-page lon long *

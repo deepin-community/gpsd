@@ -614,21 +614,21 @@ static gps_mask_t hnd_129029(unsigned char *bu, int len, PGN *pgn,
 //  printf("mode %x %x\n", (bu[31] >> 4) & 0x0f, bu[31]);
     switch ((bu[31] >> 4) & 0x0f) {
     case 0:
-        session->newdata.status = STATUS_NO_FIX;
+        session->newdata.status = STATUS_UNK;
         break;
     case 1:
-        session->newdata.status = STATUS_FIX;
+        session->newdata.status = STATUS_GPS;
         break;
     case 2:
-        session->newdata.status = STATUS_DGPS_FIX;
+        session->newdata.status = STATUS_DGPS;
         break;
     case 3:
     case 4:
     case 5:
-        session->newdata.status = STATUS_FIX; /* Is this correct ? */
+        session->newdata.status = STATUS_GPS;   // Is this correct ?
         break;
     default:
-        session->newdata.status = STATUS_NO_FIX;
+        session->newdata.status = STATUS_UNK;
         break;
     }
     mask |= STATUS_SET;
@@ -1895,8 +1895,8 @@ int nmea2000_open(struct gps_device_t *session)
 
     gpsd_switch_driver(session, "NMEA2000");
     session->gpsdata.gps_fd = sock;
-    session->sourcetype = source_can;
-    session->servicetype = service_sensor;
+    session->sourcetype = SOURCE_CAN;
+    session->servicetype = SERVICE_SENSOR;
     session->driver.nmea2000.can_net = can_net;
 
     if (unit_ptr != NULL) {

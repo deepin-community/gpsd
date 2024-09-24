@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include "../include/compiler.h"         // for FALLTHROUGH
+#include "../include/gps.h"              // for gpsd_visibilze()
 #include "../include/gpsdclient.h"
 #include "../include/gpsd.h"
 #include "../include/gps_json.h"
@@ -38,27 +39,25 @@
 
 #define BUFLEN          2048
 
-/* needed under FreeBSD */
+// needed under FreeBSD
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX   255
-#endif /* HOST_NAME_MAX */
+#endif  // HOST_NAME_MAX
 
-/* external capability tables */
+// external capability tables
 extern struct monitor_object_t nmea_mmt, sirf_mmt, ashtech_mmt;
 extern struct monitor_object_t garmin_mmt, garmin_bin_ser_mmt;
 extern struct monitor_object_t italk_mmt, ubx_mmt, superstar2_mmt;
 extern struct monitor_object_t fv18_mmt, gpsclock_mmt, mtk3301_mmt;
 extern struct monitor_object_t oncore_mmt, tnt_mmt, aivdm_mmt;
-#ifdef NMEA0183_ENABLE
 extern const struct gps_type_t driver_nmea0183;
-#endif /* NMEA0183_ENABLE */
 
-/* These are public */
+// These are public
 struct gps_device_t session;
 WINDOW *devicewin;
 bool serial;
 
-/* These are private */
+// These are private
 static struct gps_context_t context;
 static bool curses_active;
 static WINDOW *statwin, *cmdwin;
@@ -71,7 +70,6 @@ static struct fixsource_t source;
 static char hostname[HOST_NAME_MAX];
 static struct timedelta_t time_offset;
 
-#ifdef PASSTHROUGH_ENABLE
 /* no methods, it's all device window */
 extern const struct gps_type_t driver_json_passthrough;
 const struct monitor_object_t json_mmt = {
@@ -82,54 +80,45 @@ const struct monitor_object_t json_mmt = {
     .min_y = 0, .min_x = 80,    /* no need for a device window */
     .driver = &driver_json_passthrough,
 };
-#endif /* PASSTHROUGH_ENABLE */
 
 static const struct monitor_object_t *monitor_objects[] = {
-#ifdef NMEA0183_ENABLE
     &nmea_mmt,
-#if defined(GARMIN_ENABLE) && defined(NMEA0183_ENABLE)
+#if defined(GARMIN_ENABLE)
     &garmin_mmt,
-#endif /* GARMIN_ENABLE && NMEA0183_ENABLE */
+#endif  // GARMIN_ENABLE
 #if defined(GARMIN_ENABLE) && defined(BINARY_ENABLE)
     &garmin_bin_ser_mmt,
-#endif /* defined(GARMIN_ENABLE) && defined(BINARY_ENABLE) */
-#ifdef ASHTECH_ENABLE
+#endif  // defined(GARMIN_ENABLE) && defined(BINARY_ENABLE)
     &ashtech_mmt,
-#endif /* ASHTECH_ENABLE */
 #ifdef FV18_ENABLE
     &fv18_mmt,
-#endif /* FV18_ENABLE */
+#endif  // FV18_ENABLE
 #ifdef GPSCLOCK_ENABLE
     &gpsclock_mmt,
-#endif /* GPSCLOCK_ENABLE */
-#ifdef MTK3301_ENABLE
+#endif  // GPSCLOCK_ENABLE
     &mtk3301_mmt,
-#endif /* MTK3301_ENABLE */
 #ifdef AIVDM_ENABLE
     &aivdm_mmt,
-#endif /* AIVDM_ENABLE */
-#endif /* NMEA0183_ENABLE */
+#endif  // AIVDM_ENABLE
 #if defined(SIRF_ENABLE) && defined(BINARY_ENABLE)
     &sirf_mmt,
-#endif /* defined(SIRF_ENABLE) && defined(BINARY_ENABLE) */
+#endif  // defined(SIRF_ENABLE) && defined(BINARY_ENABLE)
 #if defined(UBLOX_ENABLE) && defined(BINARY_ENABLE)
     &ubx_mmt,
-#endif /* defined(UBLOX_ENABLE) && defined(BINARY_ENABLE) */
+#endif  // defined(UBLOX_ENABLE) && defined(BINARY_ENABLE)
 #if defined(ITRAX_ENABLE) && defined(BINARY_ENABLE)
     &italk_mmt,
-#endif /* defined(ITALK_ENABLE) && defined(BINARY_ENABLE) */
+#endif  // defined(ITALK_ENABLE) && defined(BINARY_ENABLE)
 #if defined(SUPERSTAR2_ENABLE) && defined(BINARY_ENABLE)
     &superstar2_mmt,
-#endif /* defined(SUPERSTAR2_ENABLE) && defined(BINARY_ENABLE) */
+#endif  // defined(SUPERSTAR2_ENABLE) && defined(BINARY_ENABLE)
 #if defined(ONCORE_ENABLE) && defined(BINARY_ENABLE)
     &oncore_mmt,
-#endif /* defined(ONCORE_ENABLE) && defined(BINARY_ENABLE) */
+#endif  // defined(ONCORE_ENABLE) && defined(BINARY_ENABLE)
 #ifdef TNT_ENABLE
     &tnt_mmt,
-#endif /* TNT_ENABLE */
-#ifdef PASSTHROUGH_ENABLE
+#endif  // TNT_ENABLE
     &json_mmt,
-#endif /* PASSTHROUGH_ENABLE */
     NULL,
 };
 
@@ -176,47 +165,44 @@ static inline void report_unlock(void)
  *
  ******************************************************************************/
 
-static void visibilize(char *buf2, size_t len2, const char *buf)
-/* string is mostly printable, dress up the nonprintables a bit */
-{
-    const char *sp;
-
-    buf2[0] = '\0';
-    for (sp = buf; *sp != '\0' && strlen(buf2)+4 < len2; sp++)
-        if (isprint((unsigned char) *sp) || (sp[0] == '\n' && sp[1] == '\0')
-          || (sp[0] == '\r' && sp[2] == '\0'))
-            (void)snprintf(buf2 + strlen(buf2), 2, "%c", *sp);
-        else
-            (void)snprintf(buf2 + strlen(buf2), 6, "\\x%02x",
-                           (unsigned)(*sp & 0xff));
-}
-
+/* pass through visibilized if all printable, hexdump otherwise
+ *
+ * From: "buf" of size "len"
+ * To: "buf2" of size "len2"
+ *
+ */
 static void cond_hexdump(char *buf2, size_t len2,
                          const char *buf, size_t len)
-/* pass through visibilized if all printable, hexdump otherwise */
 {
     size_t i;
     bool printable = true;
     for (i = 0; i < len; i++)
-        if (!isprint((unsigned char) buf[i]) && !isspace((unsigned char) buf[i]))
+        if (!isprint((unsigned char)buf[i]) &&
+            !isspace((unsigned char) buf[i])) {
             printable = false;
+        }
     if (printable) {
         size_t j;
-        for (i = j = 0; i < len && j < len2 - 1; i++)
-            if (isprint((unsigned char) buf[i])) {
+        for (i = j = 0; i < len && j < len2 - 1; i++) {
+            if (isprint((unsigned char)buf[i])) {
                 buf2[j++] = buf[i];
                 buf2[j] = '\0';
-            }
-            else {
+            } else {
                 if (TEXTUAL_PACKET_TYPE(session.lexer.type)) {
-                    if (i == len - 1 && buf[i] == '\n')
+                    if (i == len - 1 &&
+                        buf[i] == '\n') {
                         continue;
-                    if (i == len - 2 && buf[i] == '\r')
+                    }
+                    if (i == len - 2 &&
+                        buf[i] == '\r') {
                         continue;
+                    }
                 }
-                (void)snprintf(&buf2[j], len2-strlen(buf2), "\\x%02x", (unsigned int)(buf[i] & 0xff));
-                j = strlen(buf2);
+                (void)snprintf(&buf2[j], len2 - strnlen(buf2, len2), "\\x%02x",
+                               (unsigned int)(buf[i] & 0xff));
+                j = strnlen(buf2, len2);
             }
+        }
     } else {
         buf2[0] = '\0';
         for (i = 0; i < len; i++)
@@ -343,10 +329,10 @@ static void packet_vlog(char *buf, size_t len, const char *fmt, va_list ap)
 {
     char buf2[BUFSIZ];
 
-    visibilize(buf2, sizeof(buf2), buf);
+    gps_visibilize(buf2, sizeof(buf2), buf, len);
 
     report_lock();
-    (void)vsnprintf(buf2 + strlen(buf2), len, fmt, ap);
+    (void)vsnprintf(buf2 + strnlen(buf2, sizeof(buf2)), len, fmt, ap);
     gpsmon_report(buf2);
     report_unlock();
 }
@@ -359,7 +345,7 @@ static void announce_log(const char *fmt, ...)
     (void)vsnprintf(buf, sizeof(buf) - 5, fmt, ap);
     va_end(ap);
 
-   if (packetwin != NULL) {
+   if (NULL != packetwin) {
         report_lock();
         (void)wattrset(packetwin, A_BOLD);
         (void)wprintw(packetwin, ">>>");
@@ -379,7 +365,7 @@ static void monitor_vcomplain(const char *fmt, va_list ap)
     (void)wmove(cmdwin, 0, (int)promptlen);
     (void)wclrtoeol(cmdwin);
     (void)wattrset(cmdwin, A_BOLD);
-    (void)vw_printw(cmdwin, (char *)fmt, ap);
+    (void)vw_printw(cmdwin, fmt, ap);
     (void)wattrset(cmdwin, A_NORMAL);
     (void)wrefresh(cmdwin);
     (void)doupdate();
@@ -406,7 +392,7 @@ void monitor_log(const char *fmt, ...)
         va_list ap;
         report_lock();
         va_start(ap, fmt);
-        (void)vw_printw(packetwin, (char *)fmt, ap);
+        (void)vw_printw(packetwin, fmt, ap);
         va_end(ap);
         report_unlock();
     }
@@ -454,19 +440,20 @@ static void refresh_statwin(void)
     report_unlock();
 }
 
+// refresh the command window
 static void refresh_cmdwin(void)
-/* refresh the command window */
 {
     report_lock();
     (void)wmove(cmdwin, 0, 0);
     (void)wprintw(cmdwin, "%s", type_name);
-    promptlen = strlen(type_name);
-    if (fallback != NULL && strcmp(fallback->type_name, type_name) != 0) {
+    promptlen = strnlen(type_name, COLS);
+    if (NULL != fallback &&
+        0 != strcmp(fallback->type_name, type_name)) {
         (void)waddch(cmdwin, (chtype)' ');
         (void)waddch(cmdwin, (chtype)'(');
         (void)waddstr(cmdwin, fallback->type_name);
         (void)waddch(cmdwin, (chtype)')');
-        promptlen += strlen(fallback->type_name) + 3;
+        promptlen += strnlen(fallback->type_name, COLS) + 3;
     }
     (void)wprintw(cmdwin, "> ");
     promptlen += 2;
@@ -491,8 +478,11 @@ static bool curses_init(void)
     statwin = newwin(CMDWINHEIGHT, 30, 0, 0);
     cmdwin = newwin(CMDWINHEIGHT, 0, 0, 30);
     packetwin = newwin(0, 0, CMDWINHEIGHT, 0);
-    if (statwin == NULL || cmdwin == NULL || packetwin == NULL)
+    if (NULL == statwin ||
+        NULL == cmdwin ||
+        NULL == packetwin) {
         return false;
+    }
     (void)scrollok(packetwin, true);
     (void)wsetscrreg(packetwin, 0, LINES - CMDWINHEIGHT);
 
@@ -574,33 +564,34 @@ static void select_packet_monitor(struct gps_device_t *device)
      */
     if (device->lexer.type != last_type) {
         const struct gps_type_t *active_type = device->device_type;
-#ifdef NMEA0183_ENABLE
-        if (device->lexer.type == NMEA_PACKET
-            && ((device->device_type->flags & DRIVER_STICKY) != 0))
+        if (NMEA_PACKET == device->lexer.type &&
+            0 != ((device->device_type->flags & DRIVER_STICKY))) {
             active_type = &driver_nmea0183;
-#endif /* NMEA0183_ENABLE */
-        if (!switch_type(active_type))
+        }
+        if (!switch_type(active_type)) {
             longjmp(terminate, TERM_DRIVER_SWITCH);
-        else {
+        } else {
             refresh_statwin();
             refresh_cmdwin();
         }
         last_type = device->lexer.type;
     }
 
-    if (active != NULL
-        && device->lexer.outbuflen > 0
-        && (*active)->update != NULL)
+    if (NULL != active &&
+        0 < device->lexer.outbuflen &&
+        NULL != (*active)->update) {
         (*active)->update();
-    if (devicewin != NULL)
+    }
+    if (NULL != devicewin) {
         (void)wnoutrefresh(devicewin);
+    }
 }
 
-/* Control-L character */
+// Control-L character
 #define CTRL_L 0x0C
 
+// char-by-char nonblocking input, return accumulated command line on \n
 static char *curses_get_command(void)
-/* char-by-char nonblocking input, return accumulated command line on \n */
 {
     static char input[80];
     static char line[80];
@@ -608,14 +599,19 @@ static char *curses_get_command(void)
 
     c = wgetch(cmdwin);
     if (CTRL_L == c) {
-        /* ^L is to repaint the screen */
+        // ^L is to repaint the screen
         (void)clearok(stdscr, true);
-        if (active != NULL && (*active)->initialize != NULL)
+        if (NULL != active &&
+            NULL != (*active)->initialize) {
             (void)(*active)->initialize();
-    } else if (c != '\r' && c != '\n') {
-        size_t len = strlen(input);
+        }
+    } else if ('\r' != c &&
+               '\n' != c) {
+        size_t len = strnlen(input, sizeof(input));
 
-        if (c == '\b' || c == KEY_LEFT || c == (int)erasechar()) {
+        if ('\b' == c ||
+            KEY_LEFT == c ||
+            (int)erasechar() == c) {
             input[len--] = '\0';
         } else if (isprint(c)) {
             input[len] = (char)c;
@@ -633,7 +629,7 @@ static char *curses_get_command(void)
     (void)wrefresh(cmdwin);
     (void)doupdate();
 
-    /* user finished entering a command */
+    // user finished entering a command
     if (input[0] == '\0')
         return NULL;
     else {
@@ -754,7 +750,9 @@ static void gpsmon_hook(struct gps_device_t *device, gps_mask_t changed UNUSED)
             time_offset = session.gpsdata.toff;
             return;
         }
-    } else if (!serial && str_starts_with((char*)device->lexer.outbuffer, "{\"class\":\"PPS\",")) {
+    } else if (!serial &&
+               str_starts_with((char*)device->lexer.outbuffer,
+                               "{\"class\":\"PPS\",")) {
         const char *end = NULL;
         struct gps_data_t noclobber;
         int status = json_pps_read((const char *)device->lexer.outbuffer,
@@ -804,32 +802,36 @@ static void gpsmon_hook(struct gps_device_t *device, gps_mask_t changed UNUSED)
     else
 #endif /* SOCKET_EXPORT_ENABLE && PPS_DISPLAY_ENABLE */
     {
+        size_t blen;
+
 #ifdef __future__
-        if (!serial)
-        {
-            if (device->lexer.type == JSON_PACKET)
-            {
+        if (!serial) {
+            if (JSON_PACKET == device->lexer.type) {
                 const char *end = NULL;
-                libgps_json_unpack((char *)device->lexer.outbuffer, &session.gpsdata, &end);
+                libgps_json_unpack((char *)device->lexer.outbuffer,
+                                   &session.gpsdata, &end);
             }
         }
 #endif /* __future__ */
 
-        if (curses_active)
+        if (curses_active) {
             select_packet_monitor(device);
+        }
 
         (void)snprintf(buf, sizeof(buf), "(%d) ",
                        (int)device->lexer.outbuflen);
-        cond_hexdump(buf + strlen(buf), sizeof(buf) - strlen(buf),
-                     (char *)device->lexer.outbuffer,device->lexer.outbuflen);
+        blen  = strnlen(buf, sizeof(buf));
+        cond_hexdump(buf + blen, sizeof(buf) - blen,
+                     (char *)device->lexer.outbuffer,
+                     device->lexer.outbuflen);
         (void)strlcat(buf, "\n", sizeof(buf));
     }
 
     report_lock();
 
-    if (!curses_active)
+    if (!curses_active) {
         (void)fputs(buf, stdout);
-    else {
+    } else {
         if (packetwin != NULL) {
             (void)waddstr(packetwin, buf);
             (void)wnoutrefresh(packetwin);
@@ -837,10 +839,12 @@ static void gpsmon_hook(struct gps_device_t *device, gps_mask_t changed UNUSED)
         (void)doupdate();
     }
 
-    if (logfile != NULL && device->lexer.outbuflen > 0) {
-        UNUSED size_t written_count = fwrite
-               (device->lexer.outbuffer, sizeof(char),
-                device->lexer.outbuflen, logfile);
+    if (NULL != logfile &&
+        0 < device->lexer.outbuflen) {
+        UNUSED size_t written_count = fwrite(device->lexer.outbuffer,
+                                             sizeof(char),
+                                             device->lexer.outbuflen,
+                                             logfile);
         assert(written_count >= 1);
     }
 
@@ -864,26 +868,28 @@ static bool do_command(const char *line)
     unsigned char buf[BUFLEN];
     const char *arg;
 
-    if (isspace((unsigned char) line[1])) {
-        for (arg = line + 2; *arg != '\0' && isspace((unsigned char) *arg); arg++)
-            arg++;
-        arg++;
-    } else
-        arg = line + 1;
+    // skip over any spaces until NUL or the next argument
+    for (arg = line + 1;
+         *arg != '\0' &&
+         isspace((unsigned char) *arg);
+         arg++) {
+    }
 
     switch (line[0]) {
     case 'c':   /* change cycle time */
-        if (session.device_type == NULL)
+        if (NULL == session.device_type) {
             complain("No device defined yet");
-        else if (!serial)
+        } else if (!serial) {
             complain("Only available in low-level mode.");
-        else {
+        } else {
             double rate = strtod(arg, NULL);
             const struct gps_type_t *switcher = session.device_type;
 
-            if (fallback != NULL && fallback->rate_switcher != NULL)
+            if (NULL != fallback &&
+                NULL != fallback->rate_switcher) {
                 switcher = fallback;
-            if (switcher->rate_switcher != NULL) {
+            }
+            if (NULL != switcher->rate_switcher) {
                 /* *INDENT-OFF* */
                 context.readonly = false;
                 if (switcher->rate_switcher(&session, rate)) {
@@ -892,71 +898,80 @@ static bool do_command(const char *line)
                     complain("Rate not supported.");
                 context.readonly = true;
                 /* *INDENT-ON* */
-            } else
-                complain
-                    ("Device type %s has no rate switcher",
-                     switcher->type_name);
+            } else {
+                complain("Device type %s has no rate switcher",
+                         switcher->type_name);
+            }
         }
         break;
-    case 'i':   /* start probing for subtype */
-        if (session.device_type == NULL)
+    case 'i':   // start probing for subtype
+        if (NULL == session.device_type) {
             complain("No GPS type detected.");
-        else if (!serial)
+        } else if (!serial) {
             complain("Only available in low-level mode.");
-        else {
-            if (strcspn(line, "01") == strlen(line))
+        } else {
+            if (strcspn(line, "01") == strnlen(line, 4)) {
                 context.readonly = !context.readonly;
-            else
-                context.readonly = (atoi(line + 1) == 0);
+            } else {
+                context.readonly = (atoi(arg) == 0);
+            }
             announce_log("[probing %sabled]", context.readonly ? "dis" : "en");
-            if (!context.readonly)
-                /* magic - forces a reconfigure */
+            if (!context.readonly) {
+                // magic - forces a reconfigure
                 session.lexer.counter = 0;
+            }
         }
         break;
 
-    case 'l':   /* open logfile */
+    case 'l':   // open logfile
         report_lock();
-        if (logfile != NULL) {
-            if (packetwin != NULL)
-                (void)wprintw(packetwin,
-                              ">>> Logging off\n");
+        if (NULL != logfile) {
+            // close existing log, ignore argument
+            if (NULL != packetwin) {
+                (void)wprintw(packetwin, ">>> Logging off\n");
+            }
             (void)fclose(logfile);
+        } else if ('\0' != *arg) {
+            logfile = fopen(arg, "a");
+            // open new log file, arument is the name
+            if (NULL != packetwin) {
+                if (NULL != logfile) {
+                    (void)wprintw(packetwin, ">>> Logging to %s\n", arg);
+                } else {
+                    (void)wprintw(packetwin, ">>> Logging to %s failed\n",
+                                  arg);
+                }
+            }
         }
-
-        if ((logfile = fopen(line + 1, "a")) != NULL)
-            if (packetwin != NULL)
-                (void)wprintw(packetwin,
-                              ">>> Logging to %s\n", line + 1);
         report_unlock();
         break;
 
-    case 'n':   /* change mode */
-        /* if argument not specified, toggle */
-        if (strcspn(line, "01") == strlen(line)) {
-            /* *INDENT-OFF* */
-            v = (unsigned int)TEXTUAL_PACKET_TYPE(
-                session.lexer.type);
-            /* *INDENT-ON* */
-        } else
-            v = (unsigned)atoi(line + 1);
-        if (session.device_type == NULL)
+    case 'n':   // change mode
+        // if argument not specified, toggle
+        if (strcspn(line, "01") == strnlen(line, 4)) {
+            v = (unsigned int)TEXTUAL_PACKET_TYPE(session.lexer.type);
+        } else {
+            v = (unsigned)atoi(arg);
+        }
+        if (NULL == session.device_type) {
             complain("No device defined yet");
-        else if (!serial)
+        } else if (!serial) {
             complain("Only available in low-level mode.");
-        else {
+        } else {
             const struct gps_type_t *switcher = session.device_type;
 
-            if (fallback != NULL && fallback->mode_switcher != NULL)
+            if (NULL != fallback &&
+                NULL != fallback->mode_switcher) {
                 switcher = fallback;
-            if (switcher->mode_switcher != NULL) {
+            }
+            if (NULL != switcher->mode_switcher) {
                 context.readonly = false;
                 announce_log("[Mode switcher to mode %d]", v);
                 switcher->mode_switcher(&session, (int)v);
                 context.readonly = true;
                 (void)tcdrain(session.gpsdata.gps_fd);
 
-                /* wait 50,000 uSec */
+                // wait 50,000 uSec
                 delay.tv_sec = 0;
                 delay.tv_nsec = 50000000L;
                 nanosleep(&delay, NULL);
@@ -966,24 +981,25 @@ static bool do_command(const char *line)
                  * gpsmon resyncs.  So stash the current type to
                  * be restored if we do 'n' from NMEA mode.
                  */
-                if (v == 0)
+                if (0 == v) {
                     fallback = switcher;
-            } else
-                complain
-                    ("Device type %s has no mode switcher",
-                     switcher->type_name);
+                }
+            } else {
+                complain("Device type %s has no mode switcher",
+                         switcher->type_name);
+            }
         }
         break;
 
-    case 'q':   /* quit */
+    case 'q':   // quit
         return false;
 
-    case 's':   /* change speed */
-        if (session.device_type == NULL)
+    case 's':   // change speed
+        if (NULL == session.device_type) {
             complain("No device defined yet");
-        else if (!serial)
+        } else if (!serial) {
             complain("Only available in low-level mode.");
-        else {
+        } else {
             speed_t speed;
             char parity = session.gpsdata.dev.parity;
             unsigned int stopbits =
@@ -991,30 +1007,29 @@ static bool do_command(const char *line)
             char *modespec;
             const struct gps_type_t *switcher = session.device_type;
 
-            if (fallback != NULL && fallback->speed_switcher != NULL)
+            if (NULL != fallback &&
+                NULL != fallback->speed_switcher) {
                 switcher = fallback;
+            }
             modespec = strchr(arg, ':');
-            if (modespec != NULL) {
-                if (strchr("78", *++modespec) == NULL) {
-                    complain
-                        ("No support for that word length.");
+            if (NULL != modespec) {
+                if (NULL == strchr("78", *++modespec)) {
+                    complain("No support for that word length.");
                     break;
                 }
                 parity = *++modespec;
-                if (strchr("NOE", parity) == NULL) {
-                    complain("What parity is '%c'?.",
-                                     parity);
+                if (NULL == strchr("NOE", parity)) {
+                    complain("What parity is '%c'?.", parity);
                     break;
                 }
                 stopbits = (unsigned int)*++modespec;
-                if (strchr("12", (char)stopbits) == NULL) {
+                if (NULL == strchr("12", (char)stopbits)) {
                     complain("Stop bits must be 1 or 2.");
                     break;
                 }
                 stopbits = (unsigned int)(stopbits - '0');
             }
             speed = (unsigned)atoi(arg);
-            /* *INDENT-OFF* */
             if (switcher->speed_switcher) {
                 context.readonly = false;
                 if (switcher->speed_switcher(&session, speed,
@@ -1037,75 +1052,79 @@ static bool do_command(const char *line)
 
                     (void)gpsd_set_speed(&session, speed,
                                          parity, stopbits);
-                } else
-                    complain
-                        ("Speed/mode combination not supported.");
+                } else {
+                    complain("Speed/mode combination not supported.");
+                }
                 context.readonly = true;
-            } else
-                complain
-                    ("Device type %s has no speed switcher",
-                     switcher->type_name);
-            /* *INDENT-ON* */
-            if (curses_active)
+            } else {
+                complain("Device type %s has no speed switcher",
+                         switcher->type_name);
+            }
+            if (curses_active) {
                 refresh_statwin();
+            }
         }
         break;
 
-    case 't':   /* force device type */
-        if (!serial)
+    case 't':   // force device type
+        if (!serial) {
             complain("Only available in low-level mode.");
-        else if (strlen(arg) > 0) {
+        } else if (0 < strnlen(arg, 80)) {
             int matchcount = 0;
             const struct gps_type_t **dp, *forcetype = NULL;
+
             for (dp = gpsd_drivers; *dp; dp++) {
-                if (strstr((*dp)->type_name, arg) != NULL) {
+                if (NULL != strstr((*dp)->type_name, arg)) {
                     forcetype = *dp;
                     matchcount++;
                 }
             }
-            if (matchcount == 0) {
-                complain
-                    ("No driver type matches '%s'.", arg);
-            } else if (matchcount == 1) {
+            if (0 == matchcount) {
+                complain("No driver type matches '%s'.", arg);
+            } else if (1 == matchcount) {
                 assert(forcetype != NULL);
-                /* *INDENT-OFF* */
-                if (switch_type(forcetype))
+                if (switch_type(forcetype)) {
                     (void)gpsd_switch_driver(&session,
                                              forcetype->type_name);
-                /* *INDENT-ON* */
-                if (curses_active)
+                }
+                if (curses_active) {
                     refresh_cmdwin();
+                }
             } else {
                 complain("Multiple driver type names match '%s'.", arg);
             }
         }
         break;
-    case 'x':   /* send control packet */
-        if (session.device_type == NULL)
+    case 'x':   // send control packet
+        if (NULL == session.device_type) {
             complain("No device defined yet");
-        else if (!serial)
+        } else if (!serial) {
             complain("Only available in low-level mode.");
-        else {
-            int st = gpsd_hexpack(arg, (char *)buf, strlen(arg));
-            if (st < 0)
-                complain("Invalid hex string (error %d)", st);
-            else if (session.device_type->control_send == NULL)
+        } else {
+            ssize_t st = gps_hexpack(arg, buf, strnlen(arg, 1024));
+
+            if (0 > st) {
+                complain("Invalid hex string (error %zd)", st);
+            } else if (NULL == session.device_type->control_send) {
                 complain("Device type %s has no control-send method.",
                          session.device_type->type_name);
-            else if (!monitor_control_send(buf, (size_t)st))
+            } else if (!monitor_control_send(buf, (size_t)st)) {
                 complain("Control send failed.");
+            }
         }
         break;
 
-    case 'X':   /* send raw packet */
-        if (!serial)
+    case 'X':   // send raw packet
+        if (!serial) {
             complain("Only available in low-level mode.");
-        else {
-            ssize_t len = (ssize_t) gpsd_hexpack(arg, (char *)buf, strlen(arg));
-            if (len < 0)
-                complain("Invalid hex string (error %lu)", (unsigned long)len);
-            else if (!monitor_raw_send(buf, (size_t)len))
+        } else {
+            ssize_t len = gps_hexpack(arg, buf, strnlen(arg,  1024));
+
+            if (0 > len) {
+                complain("Invalid hex string (error %zd)", len);
+            } else if (!monitor_raw_send(buf, (size_t)len)) {
                 complain("Raw send failed.");
+            }
         }
         break;
 
@@ -1114,7 +1133,7 @@ static bool do_command(const char *line)
         break;
     }
 
-    /* continue accepting commands */
+    // continue accepting commands
     return true;
 }
 
@@ -1128,10 +1147,11 @@ static jmp_buf assertbuf;
 
 static void onsig(int sig UNUSED)
 {
-    if (sig == SIGABRT)
+    if (SIGABRT == sig) {
         longjmp(assertbuf, 1);
-    else
-        longjmp(terminate, TERM_SIGNAL);
+    }
+    // else
+    longjmp(terminate, TERM_SIGNAL);
 }
 
 #define WATCHRAW        "?WATCH={\"raw\":2,\"pps\":true}\r\n"
@@ -1139,7 +1159,7 @@ static void onsig(int sig UNUSED)
 #define WATCHNMEA       "?WATCH={\"nmea\":true,\"pps\":true}\r\n"
 #define WATCHNMEADEVICE "?WATCH={\"nmea\":true,\"pps\":true,\"device\":\"%s\"}\r\n"
 
-/* this placement avoids a compiler warning */
+// this placement avoids a compiler warning
 static const char *cmdline;
 
 static void usage(void)
@@ -1196,7 +1216,7 @@ int main(int argc, char **argv)
     };
 #endif
 
-    gethostname(hostname, sizeof(hostname)-1);
+    gethostname(hostname, sizeof(hostname) - 1);
     (void)putenv("TZ=UTC");     // for ctime()
     gps_context_init(&context, "gpsmon");       // initialize the report mutex
     context.serial_write = gpsmon_serial_write;
@@ -1345,9 +1365,10 @@ int main(int argc, char **argv)
 
 
     if (serial) {
-        /* this guard suppresses a warning on Bluetooth devices */
-        if (session.sourcetype == source_rs232 ||
-            session.sourcetype == source_usb) {
+        // this guard suppresses a warning on Bluetooth devices
+        if (SOURCE_RS232 == session.sourcetype ||
+            SOURCE_ACM == session.sourcetype ||
+            SOURCE_USB == session.sourcetype ) {
             session.pps_thread.report_hook = pps_report;
             #ifdef MAGIC_HAT_ENABLE
             /*
@@ -1356,13 +1377,14 @@ int main(int argc, char **argv)
              * there is a static "first PPS", and we have access because
              * we're root, assume we want to use KPPS.
              */
-            if (strcmp(session.pps_thread.devicename, MAGIC_HAT_GPS) == 0
-                || strcmp(session.pps_thread.devicename, MAGIC_LINK_GPS) == 0) {
-                char *first_pps = pps_get_first();
-                if (access(first_pps, R_OK | W_OK) == 0)
+            if (0 == strcmp(session.pps_thread.devicename, MAGIC_HAT_GPS) ||
+                0 == strcmp(session.pps_thread.devicename, MAGIC_LINK_GPS)) {
+                const char *first_pps = pps_get_first();
+                if (0 == access(first_pps, R_OK | W_OK)) {
                         session.pps_thread.devicename = first_pps;
                 }
-            #endif /* MAGIC_HAT_ENABLE */
+            }
+            #endif  // MAGIC_HAT_ENABLE
             pps_thread_activate(&session.pps_thread);
         }
     } else if (source.device != NULL) {
@@ -1415,18 +1437,22 @@ int main(int argc, char **argv)
             rare.c_cc[VMIN] = (cc_t)1;
             (void)tcflush(0, TCIFLUSH);
             (void)tcsetattr(0, TCSANOW, &rare);
-        } else if (!curses_init())
+        } else if (!curses_init()) {
             goto quit;
+        }
 
-        for (;;)
-        {
+        for (;;) {
             fd_set efds;
-            switch(gpsd_await_data(&rfds, &efds, maxfd, &all_fds, &context.errout))
-            {
+            // static here suppresses longjmp warning
+            static timespec_t ts_timeout = {2, 0};   // timeout for pselect()
+            switch(gpsd_await_data(&rfds, &efds, maxfd, &all_fds,
+                                   &context.errout, ts_timeout)) {
             case AWAIT_GOT_INPUT:
+                FALLTHROUGH
+            case AWAIT_TIMEOUT:
                 break;
             case AWAIT_NOT_READY:
-                /* no recovery from bad fd is possible */
+                // no recovery from bad fd is possible
                 if (FD_ISSET(session.gpsdata.gps_fd, &efds))
                     longjmp(terminate, TERM_SELECT_FAILED);
                 continue;
@@ -1436,8 +1462,7 @@ int main(int argc, char **argv)
             }
 
             switch(gpsd_multipoll(FD_ISSET(session.gpsdata.gps_fd, &rfds),
-                                  &session, gpsmon_hook, 0))
-            {
+                                  &session, gpsmon_hook, 0)) {
             case DEVICE_READY:
                 FD_SET(session.gpsdata.gps_fd, &all_fds);
                 break;
@@ -1455,14 +1480,13 @@ int main(int argc, char **argv)
             }
 
             if (FD_ISSET(0, &rfds)) {
-                if (curses_active)
+                if (curses_active) {
                     cmdline = curses_get_command();
-                else
-                {
-                    /* coverity[string_null_argument] */
+                } else {
+                    // coverity[string_null_argument]
                     ssize_t st = read(0, &inbuf, 1);
 
-                    if (st == 1) {
+                    if (1 == st) {
                         report_lock();
                         (void)tcflush(0, TCIFLUSH);
                         (void)tcsetattr(0, TCSANOW, &cooked);
@@ -1470,14 +1494,17 @@ int main(int argc, char **argv)
                         (void)fputs(promptgen(), stdout);
                         (void)fputs("> ", stdout);
                         (void)putchar(inbuf[0]);
-                        cmdline = fgets(inbuf+1, sizeof(inbuf)-1, stdin);
-                        if (cmdline)
+                        cmdline = fgets(inbuf + 1, sizeof(inbuf) - 1, stdin);
+                        if (cmdline) {
                             cmdline--;
+                        }
                         report_unlock();
                     }
                 }
-                if (cmdline != NULL && !do_command(cmdline))
+                if (NULL != cmdline &&
+                    !do_command(cmdline)) {
                     longjmp(terminate, TERM_QUIT);
+                }
                 if (!curses_active) {
                     (void)sleep(2);
                     report_lock();
@@ -1489,19 +1516,22 @@ int main(int argc, char **argv)
     }
 
   quit:
-    /* we'll fall through to here on longjmp() */
+    // we'll fall through to here on longjmp()
 
-    /* Shut down PPS monitoring. */
-    if (serial)
+    // Shut down PPS monitoring.
+    if (serial) {
        (void)pps_thread_deactivate(&session.pps_thread);
+    }
 
     gpsd_close(&session);
-    if (logfile)
+    if (logfile) {
         (void)fclose(logfile);
-    if (curses_active)
+    }
+    if (curses_active) {
         (void)endwin();
-    else
+    } else {
         (void)tcsetattr(0, TCSANOW, &cooked);
+    }
 
     explanation = NULL;
     switch (bailout) {
@@ -1518,18 +1548,42 @@ int main(int argc, char **argv)
         explanation = "Read error from device\n";
         break;
     case TERM_SIGNAL:
+        FALLTHROUGH
     case TERM_QUIT:
-        /* normal exit, no message */
+        // normal exit, no message
         break;
     default:
         explanation = "Unknown error, should never happen.\n";
         break;
     }
 
-    if (explanation != NULL)
+    if (NULL != explanation) {
         (void)fputs(explanation, stderr);
+    }
     exit(EXIT_SUCCESS);
 }
 
-/* gpsmon.c ends here */
+/* pastef() - prints n/a or finite float at a point in a window 
+ *
+ * win: Pointer to the window to print in
+ * y: The row in the window
+ * x: The start colmun in that row
+ * flen: a leghth for to end of the n/a (should match fmt)
+ * fmt: a printf(3) style format string for f
+ * f: a ieee-754 double float (prefereably finite).
+ *
+ * returns: Noyhing as void
+ *
+ * caveat: flen is not passed if f is finite, write fmt with all
+ *         numbers hardcoded.
+ */
+void pastef(WINDOW *win, int y, int x, int flen, char *fmt, double f) {
+    if (0 != isfinite(f)) {
+        (void)mvwprintw(win, y, x, fmt, f);
+    } else {
+        (void)mvwprintw(win, y, x, "%*s", flen, "n/a");
+    }
+}
+
+// gpsmon.c ends here
 // vim: set expandtab shiftwidth=4

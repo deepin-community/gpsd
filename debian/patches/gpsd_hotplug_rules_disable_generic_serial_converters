@@ -2,16 +2,14 @@ Disable hotplugging of ftdi/pl2302 usb<>serial adapters.
 These adapters are too common to hit them with the gpsd hotplug script.
 Bug-Debian: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=550964
 Bug-Debian: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=696020
-Index: pkg-gpsd/gpsd.rules.in
-===================================================================
---- pkg-gpsd.orig/gpsd.rules.in
-+++ pkg-gpsd/gpsd.rules.in
+--- a/gpsd.rules.in
++++ b/gpsd.rules.in
 @@ -23,13 +23,15 @@
  SUBSYSTEM!="tty", GOTO="gpsd_rules_end"
  
  # Prolific Technology, Inc. PL2303 Serial Port [linux module: pl2303]
 -ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", SYMLINK+="gps%n", @UDEVCOMMAND@
-+# rule disabled in Debian as it matches too many other devices
++# !!! rule disabled in Debian as it matches too many other devices
 +# ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", SYMLINK+="gps%n", @UDEVCOMMAND@
  # ATEN International Co., Ltd UC-232A Serial Port [linux module: pl2303]
  ATTRS{idVendor}=="0557", ATTRS{idProduct}=="2008", SYMLINK+="gps%n", @UDEVCOMMAND@
@@ -19,8 +17,32 @@ Index: pkg-gpsd/gpsd.rules.in
  ATTRS{idVendor}=="067b", ATTRS{idProduct}=="aaa0", SYMLINK+="gps%n", @UDEVCOMMAND@
  # FTDI 8U232AM / FT232 [linux module: ftdi_sio]
 -ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="gps%n", @UDEVCOMMAND@
-+# rule disabled in Debian as it matches too many other devices
++# !!! rule disabled in Debian as it matches too many other devices
 +# ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="gps%n", @UDEVCOMMAND@
  # Cypress M8/CY7C64013 (Delorme uses these) [linux module: cypress_m8]
  ATTRS{idVendor}=="1163", ATTRS{idProduct}=="0100", SYMLINK+="gps%n", @UDEVCOMMAND@
  # Cypress M8/CY7C64013 (DeLorme LT-40)
+@@ -37,9 +39,11 @@ ATTRS{idVendor}=="1163", ATTRS{idProduct
+ # Garmin International GPSmap, various models (tested with Garmin GPS 18 USB)  [linux module: garmin_gps]
+ ATTRS{idVendor}=="091e", ATTRS{idProduct}=="0003", SYMLINK+="gps%n", @UDEVCOMMAND@
+ # Cygnal Integrated Products, Inc. CP210x Composite Device (Used by Holux m241 and Wintec grays2 wbt-201) [linux module: cp210x]
+-ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="gps%n", @UDEVCOMMAND@
++# !!! rule disabled in Debian as it matches too many other devices
++#ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="gps%n", @UDEVCOMMAND@
+ # Cygnal Integrated Products, Inc. [linux module: cp210x]
+-ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", SYMLINK+="gps%n", @UDEVCOMMAND@
++# !!! rule disabled in Debian as it matches too many other devices
++#ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", SYMLINK+="gps%n", @UDEVCOMMAND@
+ # u-blox AG, u-blox 5 (tested with Navilock NL-402U) [linux module: cdc_acm]
+ ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a5", SYMLINK+="gps%n", @UDEVCOMMAND@
+ # u-blox AG, u-blox 6 (tested with GNSS Evaluation Kit TCXO) [linux module: cdc_acm]
+@@ -56,7 +60,8 @@ ATTRS{idVendor}=="0e8d", ATTRS{idProduct
+ ATTRS{interface}=="Telit Wireless Module Port", ATTRS{bInterfaceNumber}=="06", SYMLINK+="gps%n", @UDEVCOMMAND@
+ #
+ # u-blox AG, u-blox 8 (tested with u-blox8 GNSS Mouse Receiver / GR-801) [linux module: cdc_acm] 
+-ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", SYMLINK+="gps%n", TAG+="systemd", ENV{SYSTEMD_WANTS}="gpsdctl@%k.service" 
++# !!! rule disabled in Debian as it matches too many other devices
++#ATTRS{idVendor}=="067b", ATTRS{idProduct}=="2303", SYMLINK+="gps%n", TAG+="systemd", ENV{SYSTEMD_WANTS}="gpsdctl@%k.service" 
+ 
+ ACTION=="remove", @UDEVCOMMAND@
+ 

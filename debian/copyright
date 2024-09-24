@@ -1,64 +1,103 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: gpsd
+Upstream-Contact: gpsd developers <gpsd-dev@nongnu.org>
 Source: https://download-mirror.savannah.gnu.org/releases/gpsd/
 
 Files: *
 Copyright: 1997-2002, Remco Treffkorn
            2005, Eric S. Raymond
-           1997-2018, GPSD project
-License: BSD-3-clause
+           1997-2023, GPSD project
+License: BSD-2-clause
 
-Files: libgpsmm.cpp libgpsmm.h
-Copyright: 2005, Alfredo Pironti
-License: BSD-3-clause
+Files: clients/cgps.c clients/lcdgps.c
+Copyright: 2005 Jeff Francis <jeff@gritch.org>
+           2005 by the GPSD project
+License: BSD-2-clause
 
-Files: bsd_base64.c
+Files: clients/gpsd.php.in contrib/maxsats.pl contrib/skyview.php tests/test_float.c
+Copyright: 2006,2007 Chris Kuethe <chris.kuethe@gmail.com>
+           2008-2010 The GPSD project
+License: BSD-2-clause
+
+Files: tests/test_trig.c
+Copyright: 2006 Chris Kuethe <chris.kuethe@gmail.com>
+           2009 BBN Technologies (Greg Troxel)
+           2005 by the GPSD project
+License: BSD-2-clause
+
+Files: clients/gpssnmp.c
+Copyright: 2016 David Taylor <gpsd@david.taylor.name>
+           2018 by the GPSD project
+License: BSD-2-clause
+
+Files: contrib/apparmor/usr.sbin.gpsd debian/usr.sbin.gpsd
+Copyright: 2018 Canonical Ltd.
+           2020-2023 by the GPSD project
+License: BSD-2-clause
+
+Files: contrib/skyview2svg.py.in
+Copyright: 2018 Niccolo Rigacci <niccolo@rigacci.org>
+License: BSD-2-clause
+
+Files: drivers/driver_greis.c
+Copyright: 2017 Virgin Orbit
+           2017 the GPSD project
+License: BSD-2-clause
+
+Files: example_aiogps.py example_aiogps_run gps/aiogps.py
+Copyright: 2019 Grand Joldes (grandwork2@yahoo.com).
+           2019 by the GPSD project
+License: BSD-2-clause
+
+Files: gpsd/bsd_base64.c
 Copyright: 1996, Internet Software Consortium
            1995, International Business Machines, Inc.
 License: ISC and IBM
 
-Files: cgps.c
-Copyright: 2005, Jeff Francis <jeff@gritch.org>
-License: ISC
+Files: include/libgpsmm.h libgps/libgpsmm.cpp
+Copyright: 2005 Alfredo Pironti
+           2005 by the GPSD project
+License: BSD-2-clause
 
-Files: contrib/maxsats.pl contrib/skyview.php gpsd.php* srecord.c test_float.c test_trig.c
-Copyright: 2005-2008, Chris Kuethe <chris.kuethe@gmail.com>
-License: ISC
+Files: include/sd_socket.h
+Copyright: 2011 by Eckhart Wörner
+License: BSD-2-clause
 
-Files: test_gpsmm.cpp
-Copyright: 2010, Eric S. Raymond <esr@thyrsus.com>
-License: BSD-3-clause
+Files: libgps/os_compat.c
+Copyright: 2017 by the GPSD project
+           1998 Todd C. Miller <Todd.Miller@courtesan.com>
+License: BSD-2-clause and ISC
 
-Files: os_compat.c
-Copyright: 2017, GPSD Project
-           1998, Todd C. Miller <Todd.Miller@courtesan.com>
-License: ISC
-
-License: BSD-3-clause
- The GPSD code is Copyright (c) 1997, 1998, 1999, 2000, 2001, 2002 by
- Remco Treffkorn. Portions of it are also Copyright (c) 2005 by Eric S.
- Raymond. All rights reserved.
+License: BSD-2-clause
+                           COPYRIGHTS
+ .
+ Compilation copyright is held by the GPSD project.  All rights reserved.
+ .
+ GPSD project copyrights are assigned to the project lead, currently
+ Eric S. Raymond. Other portions of the GPSD code are Copyright
+ 1997, 1998, 1999, 2000, 2001, 2002 by Remco Treffkorn, and others
+ Copyright 2005 by Eric S. Raymond.  For other copyrights, see
+ individual files.
+ .
+                            LICENSE
+               (SPDX short identifier: BSD-2-Clause)
  .
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
  are met:
  .
- Redistributions of source code must retain the above copyright
- notice, this list of conditions and the following disclaimer.
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
  .
- Redistributions in binary form must reproduce the above copyright
- notice, this list of conditions and the following disclaimer in the
- documentation and/or other materials provided with the distribution.
- .
- Neither name of the GPSD project nor the names of its contributors
- may be used to endorse or promote products derived from this software
- without specific prior written permission.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
  .
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR
- CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER
+ OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF

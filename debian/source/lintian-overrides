@@ -1,2 +1,4 @@
-# this is no old style -dbg(sym) but a collection of test tools
-gpsd: debian-control-has-obsolete-dbg-package gpsd-dbg
+# Ignore binary test data, one rule for all the files
+gpsd source: very-long-line-length-in-source-file *
+# It is pointless with scons
+gpsd source: no-dh-sequencer [debian/rules]

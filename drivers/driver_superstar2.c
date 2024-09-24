@@ -124,23 +124,23 @@ static gps_mask_t superstar2_msg_navsol_lla(struct gps_device_t *session,
     switch (flags & 0x1f) {
     case 2:
         session->newdata.mode = MODE_3D;
-        session->newdata.status = STATUS_FIX;
+        session->newdata.status = STATUS_GPS;
         break;
     case 4:
         session->newdata.mode = MODE_3D;
-        session->newdata.status = STATUS_DGPS_FIX;
+        session->newdata.status = STATUS_DGPS;
         break;
     case 5:
         session->newdata.mode = MODE_2D;
-        session->newdata.status = STATUS_DGPS_FIX;
+        session->newdata.status = STATUS_DGPS;
         break;
     case 3:
     case 6:
         session->newdata.mode = MODE_2D;
-        session->newdata.status = STATUS_FIX;
+        session->newdata.status = STATUS_GPS;
         break;
     default:
-        session->newdata.status = STATUS_NO_FIX;
+        session->newdata.status = STATUS_UNK;
         session->newdata.mode = MODE_NO_FIX;
     }
 
@@ -481,22 +481,20 @@ static void superstar2_event_hook(struct gps_device_t *session, event_t event)
  */
 static gps_mask_t superstar2_parse_input(struct gps_device_t *session)
 {
-    if (session->lexer.type == SUPERSTAR2_PACKET) {
+    if (SUPERSTAR2_PACKET == session->lexer.type) {
         return superstar2_dispatch(session, session->lexer.outbuffer,
                                    session->lexer.length);;
-#ifdef NMEA0183_ENABLE
-    } else if (session->lexer.type == NMEA_PACKET) {
+    }
+    if (NMEA_PACKET == session->lexer.type) {
         return nmea_parse((char *)session->lexer.outbuffer, session);
-#endif /* NMEA0183_ENABLE */
-    } else
-        return 0;
+    }
+    return 0;
 }
 
-static ssize_t
-superstar2_control_send(struct gps_device_t *session, char *msg,
-                        size_t msglen)
+static ssize_t superstar2_control_send(struct gps_device_t *session, char *msg,
+                                       size_t msglen)
 {
-    session->msgbuf[0] = 0x1;   /* SOH */
+    session->msgbuf[0] = 0x1;      // SOH
     session->msgbuf[1] = msg[0];
     session->msgbuf[2] = msg[0] ^ 0xff;
     session->msgbuf[3] = (char)(msglen + 1);

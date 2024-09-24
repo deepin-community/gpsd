@@ -4,16 +4,22 @@ include /usr/share/dpkg/pkg-info.mk
 
 #uncomment if debhelper should be verbose
 #export DH_VERBOSE=1
+export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
 LIBGPS_SONAME := $(strip $(shell grep -E '^libgps_version_current' SConscript | sed 's,.*=[^0-9]*\([0-9]*\).*,\1,'))
 
 export QT_SELECT=qt5
 
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+NUMJOBS := $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+else
+NUMJOBS := 1
+endif
+
 LIBGPS_DEBIAN_FILE_SOURCES := $(strip $(shell ls -1 debian/*LIBGPSSONAME* ))
 LIBGPS_DEBIAN_FILE_TARGETS := $(strip $(shell echo $(LIBGPS_DEBIAN_FILE_SOURCES) | sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g'))
 
 #python versions
-#PYTHON3 := $(shell py3versions -d)
 PYTHON3 := python3
 
 #debhelper version and settings needed for udev
@@ -32,7 +38,6 @@ UDEV_BREAKS = 136-1
 endif
 endif ## ubuntu ##
 endif ## debian ##
-
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
@@ -68,14 +73,13 @@ PACKAGE_LIB := libgps$(LIB_soname)
 PACKAGE_QTLIB := libqgpsmm$(LIB_soname)
 PACKAGE_LIB_DEV := libgps-dev
 PACKAGE_QTLIB_DEV := libqgpsmm-dev
-PACKAGE_PY := python-gps
 PACKAGE_PY3 := python3-gps
 
 
-cflags := $(shell dpkg-buildflags --get CFLAGS)
-cppflags := $(shell dpkg-buildflags --get CPPFLAGS)
-cxxflags := $(shell dpkg-buildflags --get CXXFLAGS)
-ldflags := $(shell dpkg-buildflags --get LDFLAGS)
+cflags := $(shell DEB_BUILD_MAINT_OPTIONS=$(DEB_BUILD_MAINT_OPTIONS) dpkg-buildflags --get CFLAGS)
+cppflags := $(shell DEB_BUILD_MAINT_OPTIONS=$(DEB_BUILD_MAINT_OPTIONS) dpkg-buildflags --get CPPFLAGS)
+cxxflags := $(shell DEB_BUILD_MAINT_OPTIONS=$(DEB_BUILD_MAINT_OPTIONS) dpkg-buildflags --get CXXFLAGS)
+ldflags := $(shell DEB_BUILD_MAINT_OPTIONS=$(DEB_BUILD_MAINT_OPTIONS) dpkg-buildflags --get LDFLAGS)
 
 SCONS_ENV := set -e ;\
 		export LDFLAGS="$(ldflags)" ;\
@@ -86,14 +90,14 @@ SCONS_ENV := set -e ;\
 
 $(LIBGPS_DEBIAN_FILE_TARGETS): $(LIBGPS_DEBIAN_FILE_SOURCES)
 	for source in $(LIBGPS_DEBIAN_FILE_SOURCES); do \
-	    target=$$(echo "$$source" | sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g') ;\
-	    sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g' "$$source" > "$$target" ;\
+		target=$$(echo "$$source" | sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g') ;\
+		sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g' "$$source" > "$$target" ;\
 	done
 
 debian/control: debian/control.in
 		rm -f $@
 		sed 's,LIBGPSSONAME,$(LIBGPS_SONAME),g' $< > $@
-		if which git 1>/dev/null && [ -d .git ]; then \
+		-if which git 1>/dev/null && [ -d .git ]; then \
 			git add debian/control ;\
 			git commit -m 'Updating debian/control from debian/control.in' debian/control ;\
 		fi ;\
@@ -110,7 +114,7 @@ build-arch: build
 
 build: build-stamp
 build-stamp: SConscript.deb_revision build-static-stamp
-	$(SCONS_ENV) $(PYTHON3) /usr/bin/scons shared=yes $(SCONSOPTS) target_python=$(PYTHON3)
+	$(SCONS_ENV) $(PYTHON3) /usr/bin/scons shared=yes $(SCONSOPTS) target_python=$(PYTHON3) -j$(NUMJOBS)
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 	# disable tests on hurd due to weird ipv6 errors
 	# http://deb.li/4C46AEAC.7040906@bzed.de
@@ -127,13 +131,13 @@ ifeq (,$(findstring hurd,$(DEB_HOST_ARCH_OS)))
 	rm -f test/daemon/ublox-zed-f9p_hpg1.11.log
 	rm -f test/daemon/ublox-zed-f9t-rtcm3.log
 
-	-$(SCONS_ENV) $(PYTHON3) /usr/bin/scons check
+	-$(SCONS_ENV) $(PYTHON3) /usr/bin/scons check -j$(NUMJOBS)
 endif
 endif
 	touch $@
 
 build-static-stamp: SConscript.deb_revision
-	$(SCONS_ENV) $(PYTHON3) /usr/bin/scons shared=no $(SCONSOPTS) target_python=$(PYTHON3)
+	$(SCONS_ENV) $(PYTHON3) /usr/bin/scons shared=no $(SCONSOPTS) target_python=$(PYTHON3) -j$(NUMJOBS)
 	cp gpsd-*/libgps.a libgps.a
 	rm -rf gpsd-*
 	touch $@
@@ -143,25 +147,25 @@ clean: debian/control
 	dh_testroot
 	# revert revision changes in SConscript
 	if [ -f SConscript.deb_revision ]; then \
-	    mv SConscript.deb_revision SConscript; \
+		mv SConscript.deb_revision SConscript; \
 	fi
 	dh_clean
 	rm -rf \
 		buildtmp \
 		gpsd-* \
-	    .sconf_temp \
-	    .scons-option-cache \
-	    .sconsign.dblite \
-	    .sconsign.*.dblite \
-	    gps/*.pyc \
-	    TROUBLESHOOTING \
-	    debian/buildinfo.gz \
-	    config.log \
-	    debian/shlibs.local \
-	    leapsecond.pyc \
-	    libgps.a \
-	    $(LIBGPS_DEBIAN_FILE_TARGETS) \
-	    __pycache__
+		.sconf_temp \
+		.scons-option-cache \
+		.sconsign.dblite \
+		.sconsign.*.dblite \
+		gps/*.pyc \
+		TROUBLESHOOTING \
+		debian/buildinfo.gz \
+		config.log \
+		debian/shlibs.local \
+		leapsecond.pyc \
+		libgps.a \
+		$(LIBGPS_DEBIAN_FILE_TARGETS) \
+		__pycache__
 : install-stamp
 install-stamp: build-stamp build-static-stamp $(LIBGPS_DEBIAN_FILE_TARGETS)
 	dh_testdir
@@ -179,6 +183,10 @@ install-stamp: build-stamp build-static-stamp $(LIBGPS_DEBIAN_FILE_TARGETS)
 	# quirk to avoid issues by broken fakeroot misdetecting links as files and
 	# then breaking dh_install -> cp -a fatally
 	ln -s libgps.so.$(LIBGPS_SONAME).0.0 debian/libgps$(LIBGPS_SONAME)/usr/lib/$(DEB_HOST_MULTIARCH)/libgps.so.$(LIBGPS_SONAME)
+	# these files do not need to be executable
+	chmod -x debian/gpsd-clients/usr/share/doc/gpsd-clients/examples/skyview.php
+	chmod -x debian/$(PACKAGE_PY3)/usr/lib/python3*/*-packages/gps/__init__.py
+	chmod -x debian/$(PACKAGE_PY3)/usr/lib/python3*/*-packages/gps/packet.py
 	rm debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libgps.so.$(LIBGPS_SONAME)
 	dh_missing --fail-missing
 	touch $@
@@ -197,14 +205,14 @@ binary: install-stamp
 	dh_installsystemd -pgpsd --no-enable --no-start gpsd.service
 	dh_installinit --no-start
 	dh_installsystemd -pgpsd --restart-after-upgrade
-	chmod 755 debian/$(PACKAGE_PY3)/usr/lib/python3*/*-packages/gps/gps.py
+	chmod 644 debian/$(PACKAGE_PY3)/usr/lib/python3*/*-packages/gps/gps.py
 	dh_python3 -Ngpsd-clients
 	dh_python3 -pgpsd-clients usr/bin
 	dh_python3 -pgpsd lib/udev/
 	cp $(CURDIR)/gpsd-*/gpsd.rules $(CURDIR)/debian/gpsd.udev
 	dh_installudev
 	dh_link
-	dh_strip --dbgsym-migration='gpsd-dbg (<< 3.16-4~)'
+	dh_strip
 	dh_compress
 	dh_fixperms  -Xgpsd.hotplug
 	dh_lintian

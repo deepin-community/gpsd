@@ -28,7 +28,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #ifdef HAVE_GETOPT_LONG
-       #include <getopt.h>   // for getopt_long()
+    #include <getopt.h>   // for getopt_long()
 #endif
 #include <stdbool.h>
 #include <stdio.h>
@@ -43,11 +43,11 @@
 #include <unistd.h>
 
 #ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
+    #include <sys/socket.h>
 #endif /* HAVE_SYS_SOCKET_H */
 #include <termios.h>            /* for speed_t, and cfmakeraw() on some OS */
 #ifdef HAVE_WINSOCK2_H
-#include <winsock2.h>
+    #include <winsock2.h>
 #endif /* HAVE_WINSOCK2_H */
 
 #include "../include/gpsd.h"            // for os_daemon()
@@ -62,7 +62,7 @@ static void spinner(unsigned int, unsigned int);
 
 /* Serial port variables */
 static struct termios oldtio, newtio;
-static int fd_out = 1;          /* output initially goes to standard output */
+static int fd_out = STDOUT_FILENO; /* output initially goes to standard output */
 static char serbuf[255];
 static int debug;
 
@@ -107,9 +107,10 @@ static void usage(void)
 #ifdef HAVE_GETOPT_LONG
                   "  --count COUNT    Exit after COUNT packets.\n"
                   "  --daemonize      Run as daemon.\n"
+                  "  --debug LVL      Set debug level to LVL.\n"
                   "  --help           Show this help and exit.\n"
                   "  --json           Dump gpsd native JSON data.\n"
-                  "  --nmea           Dump (psuedo) NMEA.\n"
+                  "  --nmea           Dump (pseudo) NMEA.\n"
                   "  --output FILE    Write output to FILE.\n"
                   "  --pps            Include PPS JSON in NMEA or raw mode.\n"
                   "  --profile        Include profiling info in the JSON.\n"
@@ -124,17 +125,19 @@ static void usage(void)
                   "connecting to gpsd.\n"
                   "  --spinner        Print a little spinner.\n"
                   "  --split24        Set the split24 flag.\n"
-                  "  --timefmt        Set the timestamp format "
+                  "  --timefmt FORMAT Set the timestamp format "
                   "(strftime(3)-like; implies '-t').\n"
                   "  --timestamp      Time stamp the data.\n"
-                  "  --usec           Time stamp in usec, implies -t. "
-                  "Use twice for sec.usec\n"
+                  "  --usec           Time stamp in usec, implies '-t'. "
+                  "Use twice for sec.usec.\n"
                   "  --version        Print version and exit.\n"
+                  "  --nobuffer       do not buffer output\n"
                   "  --zulu           Set the timestamp format to iso8601, "
                   "implies '-t'\n"
 #endif
                   "  -2               Set the split24 flag.\n"
                   "  -d               Run as a daemon.\n"
+                  "  -D LVL           Set debug level to LVL.\n"
                   "  -h               Show this help and exit.\n"
                   "  -l               Sleep for ten seconds before "
                   "connecting to gpsd.\n"
@@ -152,14 +155,15 @@ static void usage(void)
                   "  -T FORMAT        Set the timestamp format "
                   "(strftime(3)-like; implies '-t')\n"
                   "  -t               Time stamp the data.\n"
-                  "  -u               Time stamp in usec, implies -t. "
-                  "Use -uu to output sec.usec\n"
+                  "  -u               Time stamp in usec, implies '-t'. "
+                  "Use -uu to output sec.usec.\n"
                   "  -v               Print a little spinner.\n"
                   "  -V               Print version and exit.\n"
                   "  -w               Dump gpsd native JSON data.\n"
-                  "  -x SEC           Exit after SECONDS delay.\n"
+                  "  -x SEC           Exit after SEC seconds delay.\n"
+                  "  -B               do not buffer output\n"
                   "  -Z               Set the timestamp format to iso8601, "
-                  "implies '-t'\n\n"
+                  "implies '-t'.\n\n"
                   "You must specify one, or more, of: "
                   "--json, --nmea, --raw, -r, -R, or -w\n"
                   "You must use -o if you use -d.\n");
@@ -179,7 +183,7 @@ int main(int argc, char **argv)
     bool new_line = true;
     bool raw = false;
     bool watch = false;
-    bool profile = false;
+    bool nobuffer = false;
     int option_u = 0;                   // option to show uSeconds
     long count = -1;
     time_t exit_timer = 0;
@@ -191,18 +195,19 @@ int main(int argc, char **argv)
     struct fixsource_t source;
     char *serialport = NULL;
     char *outfile = NULL;
-    const char *optstring = "2?dD:hln:o:pPrRwSs:tT:uvVx:Z";
+    const char *optstring = "2?BdD:hln:o:pPrRwSs:tT:uvVx:Z";
 #ifdef HAVE_GETOPT_LONG
     int option_index = 0;
     static struct option long_options[] = {
         {"count", required_argument, NULL, 'n'},
         {"daemonize", no_argument, NULL, 'd'},
+        {"debug", required_argument, NULL, 'D'},
         {"help", no_argument, NULL, 'h'},
         {"json", no_argument, NULL, 'w'},
         {"nmea", no_argument, NULL, 'r' },
         {"output", required_argument, NULL, 'o'},
         {"pps", no_argument, NULL, 'P' },
-        {"profile", no_argument, NULL, 'P' },
+        {"profile", no_argument, NULL, 'p' },
         {"scaled", no_argument, NULL, 'S' },
         {"seconds", required_argument, NULL, 'x'},
         {"serial", no_argument, NULL, 'r' },
@@ -215,6 +220,7 @@ int main(int argc, char **argv)
         {"usec", no_argument, NULL, 'u'},
         {"version", no_argument, NULL, 'V' },
         {"zulu", no_argument, NULL, 'Z'},
+        {"nobuffer", no_argument, NULL, 'B'},
         {NULL, 0, NULL, 0},
     };
 #endif
@@ -256,7 +262,7 @@ int main(int argc, char **argv)
             flags |= WATCH_PPS;
             break;
         case 'p':
-            profile = true;
+            flags |= WATCH_TIMING;
             break;
         case 'R':
             flags |= WATCH_RAW;
@@ -306,10 +312,13 @@ int main(int argc, char **argv)
             format = zulu_format;
             iso8601 = true;
             break;
+        case 'B':
+            nobuffer = true;
+            break;
         case '?':
         case 'h':
             usage();
-            exit(0);
+            exit(EXIT_SUCCESS);
         default:
             usage();
             exit(EXIT_FAILURE);
@@ -319,8 +328,9 @@ int main(int argc, char **argv)
     /* Grok the server, port, and device. */
     if (optind < argc) {
         gpsd_source_spec(argv[optind], &source);
-    } else
+    } else {
         gpsd_source_spec(NULL, &source);
+    }
 
     if (serialport != NULL && !raw) {
         (void)fprintf(stderr, "gpspipe: use of '-s' requires '-r'.\n");
@@ -339,38 +349,42 @@ int main(int argc, char **argv)
     }
 
     /* Daemonize if the user requested it. */
-    if (daemonize)
-        if (os_daemon(0, 0) != 0)
+    if (daemonize) {
+        if (os_daemon(0, 0) != 0) {
             (void)fprintf(stderr,
                           "gpspipe: daemonization failed: %s\n",
                           strerror(errno));
+        }
+    }
 
     /* Sleep for ten seconds if the user requested it. */
-    if (sleepy)
+    if (sleepy) {
         (void)sleep(10);
+    }
 
-    /* Open the output file if the user requested it.  If the user
+    /* Open the output file if the user requested it. If the user
      * requested '-R', we use the 'b' flag in fopen() to "do the right
      * thing" in non-linux/unix OSes. */
     if (outfile == NULL) {
         fp = stdout;
     } else {
-        if (binary)
-            fp = fopen(outfile, "wb");
-        else
-            fp = fopen(outfile, "w");
-
+        fp = fopen(outfile, binary ? "wb" : "w");
         if (fp == NULL) {
             (void)fprintf(stderr,
-                          "gpspipe: unable to open output file:  %s\n",
+                          "gpspipe: unable to open output file: %s\n",
                           outfile);
             exit(EXIT_FAILURE);
         }
     }
+    if (nobuffer) {
+        setbuf(fp, NULL);    // do NOT buffer output
+    }
+
 
     /* Open the serial port and set it up. */
-    if (serialport)
+    if (serialport) {
         open_serial(serialport);
+    }
 
     if (gps_open(source.server, source.port, &gpsdata) != 0) {
         (void)fprintf(stderr,
@@ -379,14 +393,14 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
-    if (profile)
-        flags |= WATCH_TIMING;
-    if (source.device != NULL)
+    if (source.device != NULL) {
         flags |= WATCH_DEVICE;
+    }
     (void)gps_stream(&gpsdata, flags, source.device);
 
-    if ((isatty(STDERR_FILENO) == 0) || daemonize)
+    if ((isatty(STDERR_FILENO) == 0) || daemonize) {
         vflag = 0;
+    }
 
     for (;;) {
         int r = 0;
@@ -398,17 +412,20 @@ int main(int argc, char **argv)
         FD_SET(gpsdata.gps_fd, &fds);
         errno = 0;
         r = pselect(gpsdata.gps_fd+1, &fds, NULL, NULL, &tv, NULL);
-        if (r >= 0 && exit_timer && time(NULL) >= exit_timer)
-                break;
+        if (r >= 0 && exit_timer && time(NULL) >= exit_timer) {
+            break;
+        }
         if (r == -1 && errno != EINTR) {
             (void)fprintf(stderr, "gpspipe: select error %s(%d)\n",
                           strerror(errno), errno);
             exit(EXIT_FAILURE);
-        } else if (r == 0)
-                continue;
+        } else if (r == 0) {
+            continue;
+        }
 
-        if (vflag)
+        if (vflag) {
             spinner(vflag, l++);
+        }
 
         /* reading directly from the socket avoids decode overhead */
         errno = 0;
@@ -430,12 +447,13 @@ int main(int argc, char **argv)
                     (void)clock_gettime(CLOCK_REALTIME, &now);
                     (void)gmtime_r((time_t *)&(now.tv_sec), &tmp_now);
                     (void)strftime(tmstr, sizeof(tmstr), format, &tmp_now);
-                    new_line = 0;
+                    new_line = false;
 
-                    switch( option_u ) {
+                    switch (option_u) {
                     case 2:
-                        if(iso8601){
-                            written = strlen(tmstr);
+                        if (iso8601) {
+                            // codacy does not like strlen()
+                            written = strnlen(tmstr, sizeof(tmstr));
                             tmstr[written] = 'Z';
                             tmstr[written+1] = '\0';
                         }
@@ -448,14 +466,13 @@ int main(int argc, char **argv)
                         written = snprintf(tmstr_u, sizeof(tmstr_u),
                                            ".%06ld", (long)now.tv_nsec/1000);
 
-                        if((0 < written) && (40 > written) && iso8601){
+                        if ((0 < written) && (40 > written) && iso8601) {
                             tmstr_u[written-1] = 'Z';
                             tmstr_u[written] = '\0';
                         }
                         break;
                     default:
                         *tmstr_u = '\0';
-                        break;
                     }
 
                     if (fprintf(fp, "%.24s%s: ", tmstr, tmstr_u) <= 0) {
@@ -501,11 +518,12 @@ int main(int argc, char **argv)
             }
         } else {
             if (r == -1) {
-                if (errno == EAGAIN)
+                if (errno == EAGAIN) {
                     continue;
-                else
+                } else {
                     (void)fprintf(stderr, "gpspipe: read error %s(%d)\n",
                               strerror(errno), errno);
+                }
                 exit(EXIT_FAILURE);
             } else {
                 exit(EXIT_SUCCESS);
@@ -527,13 +545,11 @@ int main(int argc, char **argv)
     exit(EXIT_SUCCESS);
 }
 
-
 static void spinner(unsigned int v, unsigned int num)
 {
     char *spin = "|/-\\";
 
     (void)fprintf(stderr, "\010%c", spin[(num / (1 << (v - 1))) % 4]);
     (void)fflush(stderr);
-    return;
 }
 // vim: set expandtab shiftwidth=4

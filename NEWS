@@ -1,6 +1,86 @@
                         GPSD project news
 
-3.22: 2020-01-08
+3.25: 2022-01-09
+  Have ubxtool "-w 0" run forever.
+  Bump libgps version to 30.0
+  Change fixsource_t, store server locally, make pointers const.
+  Move gpsd_hexpack() to gps.h as gps_hexpack()
+  Move gpsd_hexdump() to gps.h as gps_hexdump()
+  Allow gpsctl -s/--ship to work without -f.
+  Grab prRes and quality from u-blox 8+, into JSON, then into xgps.
+  New GPSD-MIB, installed in share/mibs/gpsd.
+  gpssnmp supports GPSD-MIB in pass and pass_persist modes
+  Add decodes for NMEA $xxHDM, $xxROT and $xxXDR
+  Add Magnetic Heading (mheading) and Rate of Rotation (rot) to attitude_t
+  Allow NTP time from gpsd://, tcp:// and udp:// sources
+  Add the -B, --nobuffer, option to gpspipe.
+  gpsd opens $RUNDIR/chrony.clk.XXX.sock to supply serial time to chronyd.
+  Add -g and --garmin options to gpxlogger for depth.
+  Add -F and --filein options to gpxlogger to read GPSD JSON from a file.
+
+3.24: 2022-04-22
+  NTRIP 2.0 now works.  But still only plain HTML, not RTP, etc.
+  Remove ntrip option and NTRIP_ENABLE.  Always build.
+  Remove passthrough option and PASSTHROUGH_ENABLE.  Always build.
+  Remove nmea0183 option and NMEA0183_ENABLE.  Always build.
+  Remove netfeed option and NETFEED_ENABLE.  Always build.
+  gpsd will retry ntrip:// and tcp:// connections
+  cgps can expand to show more sats. Added --rtk option.
+  maidenhead() checks for input errors.
+  Better SHM logs.
+  PPS and TOFF JSON now include shm used, and real precision.
+  Add initial, untested, TSIPv1 support
+  split debug messages into different syslog() levels.
+  New ppscheck options, and can use /dev/ppsX devices.
+  First try at TSIPv1 protocol decodes.
+  Decode Quectel $PQVERNO for firmware version
+  Decode Skytrak PX1172RH_DS messages.
+
+3.23.1: 2021-09-21
+  Improve ubx cycle detection.
+  Add quirks for Jackson Labs nonstandard NMEA
+  Change STATUS_NO_FIX to STATUS_UNK to avoid confusion with fix mode.
+  Change STATUS_FIX to STATUS_GPS to avoid confusion with fix mode.
+  Change STATUS_DGPS_FIX to STATUS_DGPS to avoid confusion with fix mode.
+  Split SOURCE_ACM from SOURCE_USB.  ACM has no speeds.
+  Add speeds 1 mbps, 1.152 mbps, 1.5 mbps, and higher.  When libc supports them.
+  Improve autobaud.
+  Add new u-blox M10 messages.
+  Fix u-blox M6, M7 initialization issues.
+  Various ubxtool and gpxlogger updates.
+  Add mtk3301_speed_switcher()
+  No API changes, except for STATUS_* as above.
+  No ABI changes.
+  Fallback to "python3" if "python" not found.
+
+3.23: 2021-08-06
+  doc/*xml all moved into www/internals.adoc
+  Convert all DocBook (.xml) to AsciiDoctor (.adoc)
+  Remove all XSL remnants.
+  gpsplot: speedup, add new options.
+  driver_ubx.c: Add decode for UBX-NAV-STATUS
+  gps/ubx.py: Improve decode for UBX-NAV-STATUS
+  cgps: Add popup help, interactive options.
+  Reorganize and split the man pages.
+  Small updates for u-blox M8 and M10
+  Deprecated mtk3331 and ashtech build options.  Use nmea0183 instead.
+  gpssnmp: Move from contrib/ to clients, add manpage
+  Add www/gpsd-client-example-code.adoc
+  Add gpsdebuginfo script and man page.
+  ubxtool: Add BeiDou, Galileo, GLONASS, QZSS, and partial SBAS subframe decodes
+  Max serial port speed raised to 921,600.
+  SUBFRAME JSON now includes new fields to support multiple constellations.
+  gpsd: Add some ADR and UDR message partial decodes.
+  ubxtool: Add some ADR and UDR message polls and decodes.
+  Remove COMPASS_ENABLE.  Always compile attitude code.
+  contrib/webgps.py: use argparse, arguments -V, --version, --no-html-head.
+  Add readonly flag to DEVICE JSON.
+  Control messages to gpsd now return JSON, instead of, sometimes, OK or ERROR.
+  gpsfake uses "# Date: yyyy-mm-dd" to set initial time.
+  Don't compute wrong GPS rollover after 2021-10-23.
+  Bump libgps to version 29.
+
+3.22: 2021-01-08
   Added client/gpscsv to convert gpsd JSON to csv.
   Added client/gpsplot to dynamically plot gpsd JSON.
   Added client/gpssubframe to decode gpsd SUBFRAME JSON.

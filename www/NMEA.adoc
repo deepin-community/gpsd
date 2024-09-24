@@ -1,8 +1,15 @@
 = NMEA Revealed
-:description: A programmer's guide to NMEA0183, the GPS protocol reporting standard
-:keywords: NMEA0183, GPS, standard, protocol
 Eric S. Raymond <esr@thyrsus.com>
-v2.23, Mar 2019
+:author: Eric S. Raymond
+:date: 28 July 2022
+:description: A programmer's guide to NMEA0183, the GPS protocol reporting standard
+:email: <esr@thyrsus.com>
+:keywords: NMEA0183, GPS, standard, protocol
+:robots: index,follow
+:sectlinks:
+:toc: macro
+
+include::inc-menu.adoc[]
 
 NMEA 0183 is a proprietary protocol issued by the National Marine
 Electronics Association for use in boat navigation and control
@@ -118,21 +125,28 @@ information needed by the FAA.  (The values in the GGA mode field were
 extended to carry this information as well.) Here are the values:
 
 FAA Mode Indicator
-     A = Autonomous mode
-     D = Differential Mode
-     E = Estimated (dead-reckoning) mode
-     F = RTK Float mode
-     M = Manual Input Mode
-     N = Data Not Valid
-     P = Precise (4.00 and later)
-     R = RTK Integer mode
-     S = Simulated Mode
+
+[frame="topbot",options="header"]
+|========================================================
+| Mode | Description
+| A | Autonomous mode
+| C | Quectel Querk, "Caution"
+| D | Differential Mode
+| E | Estimated (dead-reckoning) mode
+| F | RTK Float mode
+| M | Manual Input Mode
+| N | Data Not Valid
+| P | Precise (4.00 and later)
+| R | RTK Integer mode
+| S | Simulated Mode
+| U | Quectel Querk, "Unsafe"
+|========================================================
 
 This field may be empty.  In pre-2.3 versions it is omitted. <<NTUM>> says
 that according to the NMEA specification, it dominates the Status field --
 the Status field will be set to "A" (data valid) for Mode Indicators A
 and D, and to "V" (data invalid) for all other values of the Mode
-Indicator.  This is confirmed by <<IEC>>.
+Indicator.  This is confirmed by <<IEC61162-1>>.
 
 In NMEA 3.0, the GBS sentence reports a complete set of error estimates. Note
 however that many receivers claiming to emit "3.0" or "3.01" don't
@@ -291,22 +305,31 @@ the following are well known:
 
 .Common talker IDs
 |================================================================
-|BD     | BeiDou (China)
-|CD     | Digital Selective Calling (DSC)
-|EC     | Electronic Chart Display & Information System (ECDIS)
-|GA     | Galileo Positioning System
-|GB     | BeiDou (China)
-|GI     | NavIC, IRNSS (India)
-|GL     | GLONASS, according to IEIC 61162-1
-|GN     | Combination of multiple satellite systems (NMEA 1083)
-|GP     | Global Positioning System receiver
-|GQ     | QZSS regional GPS augmentation system (Japan)
-|II     | Integrated Instrumentation
-|IN     | Integrated Navigation
-|LC     | Loran-C receiver (obsolete)
-|Pxxx   | Proprietary (Vendor specific)
-|PQ     | QZSS (Quectel Quirk)
-|QZ     | QZSS regional GPS augmentation system (Japan)
+|$AI     | Alarm Indicator, (AIS?)
+|$AP     | Auto Pilot (pypilot?)
+|$BD     | BeiDou (China)
+|$CD     | Digital Selective Calling (DSC)
+|$EC     | Electronic Chart Display & Information System (ECDIS)
+|$GA     | Galileo Positioning System
+|$GB     | BeiDou (China)
+|$GI     | NavIC, IRNSS (India)
+|$GL     | GLONASS, according to IEIC 61162-1
+|$GN     | Combination of multiple satellite systems (NMEA 1083)
+|$GP     | Global Positioning System receiver
+|$GQ     | QZSS regional GPS augmentation system (Japan)
+|$HC     | Heading/Compass
+|$HE     | Gyro, north seeking
+|$II     | Integrated Instrumentation
+|$IN     | Integrated Navigation
+|$LC     | Loran-C receiver (obsolete)
+|$Pxxx   | Proprietary (Vendor specific)
+|$PQ     | QZSS (Quectel Quirk)
+|$QZ     | QZSS regional GPS augmentation system (Japan)
+|$SD     | Depth Sounder
+|$ST     | Skytraq
+|$TI     | Turn Indicator
+|$YX     | Transducer
+|$WI     | Weather Instrument
 |================================================================
 
 EC -- ECDIS is a specialized geographical information system intended
@@ -558,6 +581,9 @@ unworkable.  New GPS denote each satellite, and their signals, by their
 constellation (gnssID), satellite id in that constellation (svId), and
 signal type (sigId).  NMEA, as of version 4, has not adapted.
 
+Note: Jackson Labs, Quectel and Telit sometimes use non-standard PRN
+numbering.
+
 == NMEA 4.11 System ID and Signal ID
 
 |========================================================================
@@ -742,7 +768,7 @@ This sentence expresses orbital data for a specified GPS satellite.
 ------------------------------------------------------------------------------
         1   2   3  4   5  6    7  8    9    10     11     12     13     14  15   16
         |   |   |  |   |  |    |  |    |    |      |      |      |      |   |    |
- $--ALM,x.x,x.x,xx,x.x,hh,hhhh,hh,hhhh,hhhh,hhhhhh,hhhhhh,hhhhhh,hhhhhh,hhh,hhh,*hh<CR><LF>
+ $--ALM,x.x,x.x,xx,x.x,hh,hhhh,hh,hhhh,hhhh,hhhhhh,hhhhhh,hhhhhh,hhhhhh,hhh,hhh*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -875,7 +901,7 @@ Field Number:
 6. origin Waypoint
 7. Checksum
 
-Example 1: $GPBOD,099.3,T,105.6,M,POINTB,*01
+Example 1: $GPBOD,099.3,T,105.6,M,POINTB*01
 
 Waypoint ID: "POINTB" Bearing 99.3 True, 105.6 Magnetic This sentence
 is transmitted in the GOTO mode, without an active route on your
@@ -901,14 +927,16 @@ earlier versions) <<ANON>>.
 
 ------------------------------------------------------------------------------
                                                          12
-        1         2       3 4        5 6   7 8   9 10  11|    13 14
-        |         |       | |        | |   | |   | |   | |    |   |
- $--BWC,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x.x,T,x.x,M,x.x,N,c--c,m,*hh<CR><LF>
+        1         2       3 4        5 6   7 8   9 10  11|   13
+        |         |       | |        | |   | |   | |   | |    |
+ $--BWC,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x.x,T,x.x,M,x.x,N,c--c*hh<CR><LF>
+NMEA 2.3:
+ $--BWC,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x.x,T,x.x,M,x.x,N,c--c,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC Time or observation
+1. UTC Time or observation, hh is hours, mm is minutes, ss.ss is seconds
 2. Waypoint Latitude
 3. N = North, S = South
 4. Waypoint Longitude
@@ -923,22 +951,24 @@ Field Number:
 13. FAA mode indicator (NMEA 2.3 and later, optional)
 14. Checksum
 
-Example 1: $GPBWC,081837,,,,,,T,,M,,N,*13
+Example 1: $GPBWC,081837,,,,,,T,,M,,N*13
 
 Example 2: GPBWC,220516,5130.02,N,00046.34,W,213.8,T,218.0,M,0004.6,N,EGLM*11
 
 === BWR - Bearing and Distance to Waypoint - Rhumb Line
 
 ------------------------------------------------------------------------------
-                                                       11       14
-        1         2       3 4        5 6   7 8   9 10  | 12   13 |
-        |         |       | |        | |   | |   | |   | |    |  |
+                                                       11
+        1         2       3 4        5 6   7 8   9 10  | 12  13
+        |         |       | |        | |   | |   | |   | |    |
+ $--BWR,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x.x,T,x.x,M,x.x,N,c--c*hh<CR><LF>
+NMEA 2.3:
  $--BWR,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x.x,T,x.x,M,x.x,N,c--c,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC Time of observation
+1. UTC Time of observation, hh is hours, mm is minutes, ss.ss is seconds
 2. Waypoint Latitude
 3. N = North, S = South
 4. Waypoint Longitude
@@ -1141,7 +1171,8 @@ Field Number:
 
 Field Number:
 
-1. UTC time of the GGA or GNS fix associated with this sentence
+1. UTC time of the GGA or GNS fix associated with this sentence.
+     hh is hours, mm is minutes, ss.ss is seconds
 2. Expected 1-sigma error in latitude (meters)
 3. Expected 1-sigma error in longitude (meters)
 4. Expected 1-sigma  error in altitude (meters)
@@ -1166,15 +1197,15 @@ Time, Position and fix related data for a GPS receiver.
                                                       11
         1         2       3 4        5 6 7  8   9  10 |  12 13  14   15
         |         |       | |        | | |  |   |   | |   | |   |    |
- $--GGA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh<CR><LF>
+ $--GGA,hhmmss.ss,ddmm.mm,a,ddmm.mm,a,x,xx,x.x,x.x,M,x.x,M,x.x,xxxx*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC of this position report
-2. Latitude
+1. UTC of this position report, hh is hours, mm is minutes, ss.ss is seconds.
+2. Latitude, dd is degrees, mm.mm is minutes
 3. N or S (North or South)
-4. Longitude
+4. Longitude, dd is degrees, mm.mm is minutes
 5. E or W (East or West)
 6. GPS Quality Indicator (non null)
      - 0 - fix not available,
@@ -1200,9 +1231,14 @@ Field Number:
 14. Differential reference station ID, 0000-1023
 15. Checksum
 
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
+
 Example:
 
-$GNGGA,001043.00,4404.14036,N,12118.85961,W,1,12,0.98,1113.0,M,-21.3,M,,*47
+$GNGGA,001043.00,4404.14036,N,12118.85961,W,1,12,0.98,1113.0,M,-21.3,M*47
+
+Note: Jackson Labs replaces the Quality indicator with GPSDO status.
 
 === GLC - Geographic Position, Loran-C
 
@@ -1240,21 +1276,26 @@ Field Number:
 This is one of the sentences commonly emitted by GPS units.
 
 ------------------------------------------------------------------------------
-        1       2 3        4 5         6 7   8
-        |       | |        | |         | |   |
- $--GLL,llll.ll,a,yyyyy.yy,a,hhmmss.ss,a,m,*hh<CR><LF>
+        1       2 3        4 5         6 7
+        |       | |        | |         | |
+ $--GLL,ddmm.mm,a,dddmm.mm,a,hhmmss.ss,a*hh<CR><LF>
+NMEA 2.3:
+ $--GLL,ddmm.mm,a,dddmm.mm,a,hhmmss.ss,a,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. Latitude
+1. Latitude, dd is degrees, mm.mm is minutes
 2. N or S (North or South)
-3. Longitude
+3. Longitude, dd is degrees, mm.mm is minutes
 4. E or W (East or West)
-5. UTC of this position
+5. UTC of this position, hh is hours, mm is minutes, ss.ss is seconds
 6. Status A - Data Valid, V - Data Invalid
 7. FAA mode indicator (NMEA 2.3 and later)
 8. Checksum
+
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
 
 Example: $GNGLL,4404.14012,N,12118.85993,W,001037.00,A,A*67
 
@@ -1263,15 +1304,15 @@ Example: $GNGLL,4404.14012,N,12118.85993,W,001037.00,A,A*67
 ------------------------------------------------------------------------------
        1         2       3 4        5 6    7  8   9   10  11  12  13
        |         |       | |        | |    |  |   |   |   |   |   |
-$--GNS,hhmmss.ss,llll.ll,a,yyyyy.yy,a,c--c,xx,x.x,x.x,x.x,x.x,x.x*hh
+$--GNS,hhmmss.ss,ddmm.mm,a,dddmm.mm,a,c--c,xx,x.x,x.x,x.x,x.x,x.x*hh
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC of position
-2. Latitude
+1. UTC of position, hh is hours, mm is minutes, ss.ss is seconds.
+2. Latitude, dd is minutes, mm.mm is minutes
 3. N or S (North or South)
-4. Longitude
+4. Longitude, dd is minutes, mm.mm is minutes
 5. E or W (East or West)
 6. Mode indicator (non-null)
 7. Total number of satellites in use, 00-99
@@ -1301,19 +1342,23 @@ each system, the character can have a value (table may be incomplete):
 * R = RTK Integer
 * S = Simulator Mode
 
-Example: $GPGNS,112257.00,3844.24011,N,00908.43828,W,AN,03,10.5,,,,*57
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
+
+Example: $GPGNS,112257.00,3844.24011,N,00908.43828,W,AN,03,10.5,,*57
 
 === GRS - GPS Range Residuals
 
 ------------------------------------------------------------------------------
               1    2  3  4  5  6  7  8  9 10 11 12 13 14  15
               |    |  |  |  |  |  |  |  |  |  |  |  |  |   |
- $ --GRS,hhmmss.ss,m,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,*hh<CR><LF>
+ $ --GRS,hhmmss.ss,m,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx,xx*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC time of associated GGA fix
+1. UTC time of associated GGA fix.
+   hh is hours, mm is minutes, ss.ss is seconds.
 2. 0 = Residuals used in GGA, 1 = residuals calculated after GGA
 3. Satellite 1 residual in meters
 4. Satellite 2 residual in meters
@@ -1334,7 +1379,7 @@ xx. Checksum
 
 The order of satellites MUST match those in the last GSA.
 
-Example: $GPGRS,024603.00,1,-1.8,-2.7,0.3,,,,,,,,,*6C
+Example: $GPGRS,024603.00,1,-1.8,-2.7,0.3,,,,,,,*6C
 
 Note that the talker ID may be GP, GL, or GN, depending on if the residuals
 are for GPS-only, GLONASS-only, or combined solution, respectively.
@@ -1344,7 +1389,7 @@ are for GPS-only, GLONASS-only, or combined solution, respectively.
 ------------------------------------------------------------------------------
               1    2 3 4 5 6 7 8   9
               |    | | | | | | |   |
- $ --GST,hhmmss.ss,x,x,x,x,x,x,x,*hh<CR><LF>
+ $ --GST,hhmmss.ss,x,x,x,x,x,x,x*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -1426,7 +1471,7 @@ Field Number:
 1. total number of GSV sentences to be transmitted in this group
 2. Sentence number, 1-9 of this GSV message within current group
 3. total number of satellites in view (leading zeros sent)
-4. satellite ID number (leading zeros sent)
+4. satellite ID or PRN number (leading zeros sent)
 5. elevation in degrees (-90 to 90) (leading zeros sent)
 6. azimuth in degrees to true north (000 to 359) (leading zeros sent)
 7. SNR in dB (00-99) (leading zeros sent)
@@ -1446,10 +1491,15 @@ report quads for satellites they aren't tracking, in which case the
 SNR field will be null; we don't know whether this is formally allowed
 or not.
 
-Example: $GLGSV,3,3,09,88,07,028,*51
+Example: $GLGSV,3,3,09,88,07,028*51
 
-Note: NMEA 4.1+ systems (u-blox 9, Quectel LCD79) may emit an extra field,
-Signal ID, just before the checksum.
+Note: NMEA 4.10+ systems (u-blox 9, Quectel LCD79) may emit an extra field,
+Signal ID, just before the checksum.  See the description of Signal ID's
+above.
+
+Note: $GNGSV uses PRN in field 4.  Other $GxGSV use the satellite ID in
+field 4.  Jackson Labs, Quectel, Telit, and others get this wrong, in
+various conflicting ways.
 
 === GTD - Geographic Location in Time Differences
 
@@ -1476,19 +1526,22 @@ Location and time of TRANSIT fix at waypoint
 ------------------------------------------------------------------------------
         1         2       3 4        5 6    7 8
         |         |       | |        | |    | |
- $--GXA,hhmmss.ss,llll.ll,a,yyyyy.yy,a,c--c,X*hh<CR><LF>
+ $--GXA,hhmmss.ss,ddmm.mm,a,dddmm.mm,a,c--c,X*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC of position fix
-2. Latitude
+1. UTC of position fix, hh is hours, mm is minutes, ss.ss is seconds.
+2. Latitude, dd is degrees, mm.mm is minutes
 3. East or West
-4. Longitude
+4. Longitude, dd is degrees, mm.mm is minutes
 5. North or South
 6. Waypoint ID
 7. Satellite number
 8. Checksum
+
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
 
 (The GXA sentence is obsolete as of 3.01.)
 
@@ -1568,7 +1621,7 @@ From <<GLOBALSAT>>. Shown with a "@II" leader rather than "$GP".
 ------------------------------------------------------------------------------
         1   2 3   4  5
         |   | |   |  |
- $--HSC,x.x,T,x.x,M,*hh<CR><LF>
+ $--HSC,x.x,T,x.x,M*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -1582,6 +1635,12 @@ Field Number:
 <<GLOBALSAT>> describes a completely different meaning for this
 sentence, having to do with water temperature sensors.  It is
 unclear which is correct.
+
+=== HWBIAS - Unknown
+
+Unknown sentence.  Seen from Huawai GPS receivers.
+
+Example: $GPHWBIAS,11.2*21
 
 === ITS - Trawl Door Spread 2 Distance
 
@@ -1694,7 +1753,7 @@ Field Number:
 5. Channel number
 6. Checksum
 
-Example: $GPMSS,0,0,0.000000,200,*5A
+Example: $GPMSS,0,0,0.000000,200*5A
 
 === MTW - Mean Temperature of Water
 
@@ -1799,7 +1858,7 @@ n) checksum
 Field Number:
 
 1. Beacon ID
-2. Time of Reception
+2. Time of Reception, hh is hours, mm is minutes, ss.ss is seconds.
 3. Message Code
 4. Message Body
 5. Checksum
@@ -1834,9 +1893,11 @@ To be sent by a navigation receiver when a destination waypoint is active.
 
 ------------------------------------------------------------------------------
                                                              14
-        1 2   3 4    5    6       7 8        9 10  11  12  13|  15
-        | |   | |    |    |       | |        | |   |   |   | |   |
- $--RMB,A,x.x,a,c--c,c--c,llll.ll,a,yyyyy.yy,a,x.x,x.x,x.x,A,m,*hh<CR><LF>
+        1 2   3 4    5    6       7 8        9 10  11  12  13|
+        | |   | |    |    |       | |        | |   |   |   | |
+ $--RMB,A,x.x,a,c--c,c--c,llll.ll,a,yyyyy.yy,a,x.x,x.x,x.x,A*hh<CR><LF>
+NMEA 2.3:
+ $--RMB,A,x.x,a,c--c,c--c,llll.ll,a,yyyyy.yy,a,x.x,x.x,x.x,A,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -1864,19 +1925,22 @@ Example: $GPRMB,A,0.66,L,003,004,4917.24,N,12309.57,W,001.3,052.5,000.5,V*0B
 This is one of the sentences commonly emitted by GPS units.
 
 ------------------------------------------------------------------------------
-                                                          12
-        1         2 3       4 5        6  7   8   9    10 11|  13
-        |         | |       | |        |  |   |   |    |  | |   |
- $--RMC,hhmmss.ss,A,llll.ll,a,yyyyy.yy,a,x.x,x.x,xxxx,x.x,a,m,*hh<CR><LF>
+        1         2 3       4 5        6  7   8   9    10 11
+        |         | |       | |        |  |   |   |    |  |
+ $--RMC,hhmmss.ss,A,ddmm.mm,a,dddmm.mm,a,x.x,x.x,xxxx,x.x,a*hh<CR><LF>
+NMEA 2.3:
+ $--RMC,hhmmss.ss,A,ddmm.mm,a,dddmm.mm,a,x.x,x.x,xxxx,x.x,a,m*hh<CR><LF>
+NMEA 4.1:
+ $--RMC,hhmmss.ss,A,ddmm.mm,a,dddmm.mm,a,x.x,x.x,xxxx,x.x,a,m,s*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC Time of position
+1. UTC of position fix, hh is hours, mm is minutes, ss.ss is seconds.
 2. Status, A = Valid, V = Warning
-3. Latitude
+3. Latitude, dd is degrees. mm.mm is minutes.
 4. N or S
-5. Longitude
+5. Longitude, ddd is degrees. mm.mm is minutes.
 6. E or W
 7. Speed over ground, knots
 8. Track made good, degrees true
@@ -1884,11 +1948,22 @@ Field Number:
 10. Magnetic Variation, degrees
 11. E or W
 12. FAA mode indicator (NMEA 2.3 and later)
-13. Checksum
+13. Nav Status (NMEA 4.1 and later)
+     A=autonomous,
+     D=differential,
+     E=Estimated,
+     M=Manual input mode
+     N=not valid,
+     S=Simulator,
+     V = Valid
+14. Checksum
 
 A status of V means the GPS has a valid fix that is below an internal
 quality threshold, e.g. because the dilution of precision is too high
 or an elevation mask test failed.
+
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
 
 Example: $GNRMC,001031.00,A,4404.13993,N,12118.86023,W,0.146,,100117,,,A*7B
 
@@ -2024,7 +2099,7 @@ and produces a single output.
 ------------------------------------------------------------------------------
         1   2
         |   |
- $--STN,x.x,*hh<CR><LF>
+ $--STN,x.x*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -2088,20 +2163,23 @@ Target number references to target number in TTM (and/or TLL) messages.
 ------------------------------------------------------------------------------
         1  2       3 4        5 6    7         8 9 10
         |  |       | |        | |    |         | | |
- $--TLL,xx,llll.ll,a,yyyyy.yy,a,c--c,hhmmss.ss,a,a*hh<CR><LF>
+ $--TLL,xx,ddmm.mm,a,dddmm.mm,a,c--c,hhmmss.ss,a,a*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
 1. Target Number (0-99)
-2. Target Latitude
+2. Target Latitude, dd is degrees, mm.mm is minutes.
 3. N=north, S=south
-4. Target Longitude
+4. Target Longitude, dd is degrees, mm.mm is minutes.
 5. E=east, W=west
 6. Target name
-7. UTC of data
+7. UTC of data, hh is hours, mm is minutes, ss.ss is seconds.
 8. Status (L=lost, Q=acquisition, T=tracking)
 9. R= reference target; null (,,)= otherwise
+
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
 
 === TPC - Trawl Position Cartesian Coordinates
 
@@ -2174,16 +2252,16 @@ From <<GLOBALSAT>>. Shown with a "@II" leader rather than "$GP".
                                                                     13
         1         2      3       4 5        6 7   8   9   10  11  12|
         |         |      |       | |        | |   |   |   |   |   | |
- $--TRF,hhmmss.ss,xxxxxx,llll.ll,a,yyyyy.yy,a,x.x,x.x,x.x,x.x,xxx,A*hh<CR><LF>
+ $--TRF,hhmmss.ss,xxxxxx,ddmm.mm,a,dddmm.mm,a,x.x,x.x,x.x,x.x,xxx,A*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
 
-1. UTC Time
+1. UTC of fix, hh is hours, mm is minutes, ss.ss is seconds.
 2. Date, ddmmyy
-3. Latitude
+3. Latitude, dd is degrees, mm.mm is minutes.
 4. N or S
-5. Longitude
+5. Longitude, dd is degrees, mm.mm is minutes.
 6. E or W
 7. Elevation Angle
 8. Number of iterations
@@ -2192,6 +2270,9 @@ Field Number:
 11. Satellite ID
 12. Data Validity
 13. Checksum
+
+The number of digits past the decimal point for Time, Latitude and
+Longitude is model dependent.
 
 (The TRF sentence is obsolete as of 2.3.0)
 
@@ -2220,6 +2301,7 @@ Field Number:
 12. Target Status
 13. Reference Target
 14. UTC of data (NMEA 3 and above)
+    hh is hours, mm is minutes, ss.ss is seconds.
 15. Type, A = Auto, M = Manual, R = Reported (NMEA 3 and above)
 16. Checksum
 
@@ -2332,9 +2414,11 @@ Field Number:
 This is one of the sentences commonly emitted by GPS units.
 
 ------------------------------------------------------------------------------
-         1  2  3  4  5  6  7  8 9   10
-         |  |  |  |  |  |  |  | |   |
- $--VTG,x.x,T,x.x,M,x.x,N,x.x,K,m,*hh<CR><LF>
+         1  2  3  4  5  6  7  8 9
+         |  |  |  |  |  |  |  | |
+ $--VTG,x.x,T,x.x,M,x.x,N,x.x,K*hh<CR><LF>
+NMEA 2.3:
+ $--VTG,x.x,T,x.x,M,x.x,N,x.x,K,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -2355,7 +2439,7 @@ Note: in some older versions of NMEA 0183, the sentence looks like this:
 ------------------------------------------------------------------------------
          1  2  3   4  5
          |  |  |   |  |
- $--VTG,x.x,x,x.x,x.x,*hh<CR><LF>
+ $--VTG,x.x,x,x.x,x.x*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -2488,9 +2572,11 @@ $HCXDR,A,171,D,PITCH,A,-37,D,ROLL,G,367,,MAGX,G,2420,,MAGY,G,-8984,,MAGZ*41
 === XTE - Cross-Track Error, Measured
 
 ------------------------------------------------------------------------------
-        1 2 3   4 5 6   7
-        | | |   | | |   |
- $--XTE,A,A,x.x,a,N,m,*hh<CR><LF>
+        1 2 3   4 5 6
+        | | |   | | |
+ $--XTE,A,A,x.x,a,N*hh<CR><LF>
+NMEA 2.3:
+ $--XTE,A,A,x.x,a,N,m*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Field Number:
@@ -2559,6 +2645,7 @@ Example: $GPZDA,160012.71,11,03,2004,-1,00*7D
 Field Number:
 
 1. Universal Time Coordinated (UTC)
+   hh is hours, mm is minutes, ss.ss is seconds.
 2. Elapsed Time
 3. Origin Waypoint ID
 4. Checksum
@@ -2574,6 +2661,7 @@ Field Number:
 Field Number:
 
 1. UTC of observation
+   hh is hours, mm is minutes, ss.ss is seconds.
 2. Time Remaining
 3. Destination Waypoint ID
 4. Checksum
@@ -2625,7 +2713,7 @@ $PASHR,hhmmss.sss,hhh.hh,T,rrr.rr,ppp.pp,xxx.xx,a.aaa,b.bbb,c.ccc,d,e*hh<CR><LF>
 
 Field Number:
 
-1.  hhmmss.sss - UTC time
+1.  UTC time.  mm is minutes, ss.sss is seconds.
 2.  hhh.hh - Heading in degrees
 3.  T - flag to indicate that the Heading is True Heading (i.e. to True North)
 4.  rrr.rr - Roll Angle in degrees
@@ -2714,6 +2802,45 @@ Field Number:
 
 Example:  $PGRMZ,2282,f,3*21
 
+=== PJLTS - Jackson Labs GPSDO Status
+
+------------------------------------------------------------------------------
+          1     2      3  4    5        6        7    8   9  10
+          |     |      |  |    |        |        |    |   |   |
+ $PJLTS,aaa.aa,bbb.bb,ccc,d,e.eeeeeee,ff.ffff,g.gEhh,iii,jj,kkkk*hh<CR><LF>
+------------------------------------------------------------------------------
+
+Field Number:
+
+1. Filtered UTC offset in ns
+2. Raw UTC offset in ns from the time interval counter,
+3. Number of captured input 1PPS signals,
+4. Lock status
+5. EFC voltage
+6. EFC percentage
+7. Estimated frequency accuracy
+8. Seconds in holdover
+9. Number of satellites tracked.
+10. Health status
+
+=== PJLTS - Jackson Labs Time and 3D velocity
+
+------------------------------------------------------------------------------
+          1     2      3   4      5       6   7
+          |     |      |   |      |       |   |
+ $PJLTV,aaaaa,bbbbb,ccccc,ddd,eeeeeeeee,ffff,gg*hh<CR><LF>
+------------------------------------------------------------------------------
+
+Field Number:
+
+1. X velocity (cm/s)
+2. Y velocity (cm/s)
+3. Z velocity (cm/s)
+4. speed accuracy estimate (cm/s)
+5. GPS TOW in seconds
+6. GPS week number
+7. UTC leap second offset in seconds
+
 === PMGNST - Magellan Status
 
 ------------------------------------------------------------------------------
@@ -2731,7 +2858,7 @@ Field Number:
 5. Time left on the GPS battery in hours
 6. Numbers change (freq. compensation?)
 7. PRN number receiving current focus
-8. nmea_checksum
+8. Checksum
 
 Only supported on Magellan receivers.
 
@@ -2749,7 +2876,7 @@ Only emitted by the now-obsolete Zodiac (Rockwell) chipset.
 === PUBX 00 - u-blox Lat/Long Position Data
 
 ------------------------------------------------------------------------------
- $PUBX,00,hhmmss.ss,Latitude,N,Longitude,E,AltRef,NavStat,Hacc,Vacc,SOG,COG,Vvel,+ageC,HDOP,VDOP,TDOP,GU,RU,DR,*hh<CR><LF>
+ $PUBX,00,hhmmss.ss,Latitude,N,Longitude,E,AltRef,NavStat,Hacc,Vacc,SOG,COG,Vvel,+ageC,HDOP,VDOP,TDOP,GU,RU,DR*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Example:
@@ -2764,7 +2891,7 @@ The $PUBX,01 is a UTM (Universal Transverse Mercator projection) version
 of the $PUBX,00 sentence.
 
 ------------------------------------------------------------------------------
-$PUBX,01,hhmmss.ss,Easting,E,Northing,N,AltMSL,NavStat,Hacc,Vacc,SOG,COG,Vvel,ag+eC,HDOP,VDOP,TDOP,GU,RU,DR,*hh<CR><LF>
+$PUBX,01,hhmmss.ss,Easting,E,Northing,N,AltMSL,NavStat,Hacc,Vacc,SOG,COG,Vvel,ag+eC,HDOP,VDOP,TDOP,GU,RU,DR*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Example:
@@ -2776,7 +2903,7 @@ Only emitted by u-blox Antaris chipset.
 === PUBX 03 - u-blox Satellite Status
 
 ------------------------------------------------------------------------------
- $PUBX,03,GT{,ID,s,AZM,EL,SN,LK},*hh<CR><LF>
+ $PUBX,03,GT{,ID,s,AZM,EL,SN,LK}*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Example:
@@ -2790,12 +2917,12 @@ Only emitted by u-blox Antaris chipset.
 === PUBX 04 - u-blox Time of Day and Clock Information
 
 ------------------------------------------------------------------------------
-$PUBX,04,hhmmss.ss,ddmmyy,UTC_TOW,week,reserved,Clk_B,Clk_D,PG,*hh<CR><LF>
+$PUBX,04,hhmmss.ss,ddmmyy,UTC_TOW,week,reserved,Clk_B,Clk_D,PG*hh<CR><LF>
 ------------------------------------------------------------------------------
 
 Example:
 
-$PUBX,04,073731.00,091202,113851.00,1196,113851.00,1930035,-2660.664,43,*3C<CR><+LF>
+$PUBX,04,073731.00,091202,113851.00,1196,113851.00,1930035,-2660.664,43*3C<CR><+LF>
 
 Only emitted by u-blox Antaris chipset.
 
@@ -2818,7 +2945,7 @@ Field Number:
    re-identified
 5. Target alias. Can be changed when the target identification data is
    edited.  Symbols “$”, “*” “,” and “.”  are not allowed to be used
-   within the alias word. This field is variable length, at most 21v
+   within the alias word. This field is variable length, at most 21
    characters.
 6. Latitude in degrees (two leading digits) and decimal minutes
    (trailing digits).
@@ -2832,7 +2959,7 @@ Field Number:
 13. Fixed to N, indicates decimal speed in knots.
 14. T or D. T = tracked, D = dropped. Message with status
     “dropped” is sent only once after target is dropped.
-15. NMEA checksum.
+15. Checksum.
 
 Transas is a mnanufacturer of proprietary ECDIS systems.
 
@@ -2931,15 +3058,15 @@ Described in <<MALTESE>>, actually a Maltese government document.
   "Procurement of a Fixed-Wing Maritime Patrol Aircraft"
   https://secure2.gov.mt/eprocurement/Tenders/file.ashx?f=9832DB05E65C774258580284031EC72CC315D954A7108B5E.
 
-- [[NMEA-ADVANCE]]
+- [[[NMEA-ADVANCE]]]
   "NMEA 0183 Advancements" (describes 'P' value of FAA mode)
   http://www.nmea.org/Assets/0183_advancements_nmea_oct_1_2010%20(2).pdf
 
-- [[CDDSC]]
+- [[[CDDSC]]]
   "Data Interface in Digital Selective Calling Class-D Radios"
   http://continuouswave.com/whaler/reference/DSC_Datagrams.html
 
-- [[ANON]]
+- [[[ANON]]]
   Anonymous commentator(s) are persons who have volunteered information
   about the NMEA standard(s) but do not wish to be identified.
 
@@ -2950,3 +3077,7 @@ Described in <<MALTESE>>, actually a Maltese government document.
 - [[[TALKERS]]]
   "Talker Identifier Mnemonics"
   https://www.nmea.org/Assets/NMEA%200183%20Talker%20Identifier%20Mnemonics.pdf
+
+- [[[GLOBALSAT]]]
+  "iGlobalSat WorldCom Corporation"
+  https://www.globalsat.com.tw/

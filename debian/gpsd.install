@@ -10,3 +10,6 @@ usr/bin/ubxtool
 usr/share/man/man1/ubxtool.1
 usr/bin/ntpshmmon
 usr/share/man/man1/ntpshmmon.1
+usr/bin/gpsdebuginfo
+usr/share/man/man1/gpsdebuginfo.1
+gpsinit usr/bin/

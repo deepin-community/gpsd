@@ -21,77 +21,119 @@ PERMISSIONS
 
 #include <errno.h>
 #include <stddef.h>
-#include <stdlib.h>
+#include <stdlib.h>              // for atexit()
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/time.h>
 
 #include "../include/gpsd.h"
-#include "../include/libgps.h" /* for SHM_PSEUDO_FD */
+#include "../include/libgps.h"    // for SHM_PSEUDO_FD
 
+static int shmid_for_atexit = 0;
 
+// cleanup SHM on exit
+static void shm_cleanup(void)
+{
+    if (0 == shmid_for_atexit) {
+        // nothing to do
+        return;
+    }
+    // mark SHM to be destroyed on exit
+    // Since we dropped root, this fails, silently.
+    if (-1 == shmctl(shmid_for_atexit, IPC_RMID, NULL)) {
+        fprintf(stderr, "SHM: shmctl(%d) for IPC_RMID failed, %s(%d)\n",
+                shmid_for_atexit, strerror(errno), errno);
+    }
+}
+
+/* initialize the shared-memory segment to be used for export
+ *
+ * Return: true = OK
+ *         false: failed
+ */
 bool shm_acquire(struct gps_context_t *context)
-/* initialize the shared-memory segment to be used for export */
 {
     long shmkey = getenv("GPSD_SHM_KEY") ? \
                       strtol(getenv("GPSD_SHM_KEY"), NULL, 0) : GPSD_SHM_KEY;
 
     int shmid = shmget((key_t)shmkey, sizeof(struct shmexport_t),
                        (int)(IPC_CREAT|0666));
-    if (shmid == -1) {
+    context->shmid = shmid;
+    if (-1 == shmid) {
         GPSD_LOG(LOG_ERROR, &context->errout,
-                 "shmget(0x%lx, %zd, 0666) for SHM export failed: %s\n",
+                 "SHM: shmget(0x%lx, %zd, 0666) SHM export failed: %s(%d)\n",
                  shmkey,
                  sizeof(struct shmexport_t),
-                 strerror(errno));
-        return false;
-    } else
-        GPSD_LOG(LOG_PROG, &context->errout,
-                 "shmget(0x%lx, %zd, 0666) for SHM export succeeded\n",
-                 shmkey,
-                 sizeof(struct shmexport_t));
-
-    context->shmexport = (void *)shmat(shmid, 0, 0);
-    if ((int)(long)context->shmexport == -1) {
-        GPSD_LOG(LOG_ERROR, &context->errout,
-                 "shmat failed: %s\n", strerror(errno));
-        context->shmexport = NULL;
+                 strerror(errno), errno);
         return false;
     }
-    context->shmid = shmid;
 
     GPSD_LOG(LOG_PROG, &context->errout,
-             "shmat() for SHM export succeeded, segment %d\n", shmid);
+             "SHM: shmget(0x%lx, %zd, 0666) for SHM export succeeded\n",
+             shmkey,
+             sizeof(struct shmexport_t));
+
+    context->shmexport = (void *)shmat(shmid, 0, 0);
+    if ((void *)-1 == context->shmexport) {
+        GPSD_LOG(LOG_ERROR, &context->errout,
+                 "SHM: shmat failed: %s(%d)\n", strerror(errno), errno);
+        context->shmexport = NULL;
+        // close shmid
+        shm_release(context);
+        return false;
+    }
+
+    /* Tried to do IPC_RMID, but in spite of what the man page says, it destroyed
+     * the segment right away.  Also, pending IPC_RMID is Linux only.
+     * So try an atexit(). */
+    shmid_for_atexit = shmid;
+    if (0 != atexit(shm_cleanup)) {
+        GPSD_LOG(LOG_ERROR, &context->errout,
+                 "SHM: atexit() failed: %s(%d)\n", strerror(errno), errno);
+        exit(EXIT_FAILURE);
+    }
+
+    GPSD_LOG(LOG_PROG, &context->errout,
+             "SHM: shmat() for SHM export succeeded, segment %d\n", shmid);
     return true;
 }
 
-/* release the shared-memory segment used for export */
+// release the shared-memory segment used for export
 void shm_release(struct gps_context_t *context)
 {
-    if (context->shmexport == NULL)
-        return;
 
     /* Mark shmid to go away when no longer used
      * Having it linger forever is bad, and when the size enlarges
      * it can no longer be opened
      */
-    if (shmctl(context->shmid, IPC_RMID, NULL) == -1) {
-        GPSD_LOG(LOG_WARN, &context->errout,
-                 "shmctl for IPC_RMID failed, errno = %d (%s)\n",
-                 errno, strerror(errno));
+
+    /* debug
+    * GPSD_LOG(LOG_SHOUT, &context->errout,
+    *          "SHM: shm_release() shmid %d shmexport %p\n",
+    *          context->shmid, context->shmexport);
+    */
+
+    // detach from segment, it we were last user, it should be deleted.
+    if (NULL != context->shmexport) {
+        if (-1 == shmdt(context->shmexport)) {
+            GPSD_LOG(LOG_WARN, &context->errout,
+                     "SHM: shmdt() for shmid %d failed: %s(%d)\n",
+                     context->shmid, strerror(errno), errno);
+        }
     }
-    (void)shmdt((const void *)context->shmexport);
+
+    context->shmid = -1;
+
 }
 
-/* export an update to all listeners */
+// export an update to all listeners
 void shm_update(struct gps_context_t *context, struct gps_data_t *gpsdata)
 {
-    if (context->shmexport != NULL)
-    {
+    if (NULL != context->shmexport) {
         static int tick;
         volatile struct shmexport_t *shared = \
-                            (struct shmexport_t *)context->shmexport;
+                            (volatile struct shmexport_t *)context->shmexport;
 
         ++tick;
         /*
@@ -117,14 +159,13 @@ void shm_update(struct gps_context_t *context, struct gps_data_t *gpsdata)
         shared->gpsdata.gps_fd = SHM_PSEUDO_FD;
 #else
         shared->gpsdata.gps_fd = (void *)(intptr_t)SHM_PSEUDO_FD;
-#endif /* USE_QT */
+#endif  // USE_QT
         memory_barrier();
         shared->bookend1 = tick;
     }
 }
 
 
-#endif /* SHM_EXPORT_ENABLE */
+#endif  // SHM_EXPORT_ENABLE
 
-/* end */
 // vim: set expandtab shiftwidth=4

@@ -11,7 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>                 // for struct timespec
 
+#include "../include/gps.h"       // for safe_atof()
 #include "../include/gpsd.h"
 #include "../include/gps_json.h"
 
@@ -53,24 +55,25 @@ static void assert_string1(char *desc, char *got, char *sb)
     }
 }
 
-static void assert_integer(char *attr, int fld, int val)
+static void assert_int(const char *attr, const char *type, long fld, long val)
 {
     if (fld != val) {
         (void)fprintf(stderr, "case %d FAILED\n", current_test);
         (void)fprintf(stderr,
-                      "'%s' integer attribute eval failed, value = %d s/b %d.\n",
-                      attr, fld, val);
+                      "'%s' %s eval failed, value = %ld s/b %ld.\n",
+                      attr, type, fld, val);
         exit(EXIT_FAILURE);
     }
 }
 
-static void assert_uinteger(char *attr, unsigned int fld, unsigned int val)
+static void assert_uint(const char *attr, const char *type, unsigned long fld,
+                        unsigned long val)
 {
     if (fld != val) {
         (void)fprintf(stderr, "case %d FAILED\n", current_test);
         (void)fprintf(stderr,
-                      "'%s' integer attribute eval failed, value = %u.\n",
-                      attr, fld);
+                      "'%s' %s eval failed, value = %lu s/b %lu.\n",
+                      attr, type, fld, val);
         exit(EXIT_FAILURE);
     }
 }
@@ -82,6 +85,21 @@ static void assert_boolean(char *attr, bool fld, bool val)
         (void)fprintf(stderr,
                       "'%s' boolean attribute eval failed, value = %s.\n",
                       attr, fld ? "true" : "false");
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void assert_ts(const char *attr, struct timespec fld,
+                      struct timespec val)
+{
+    if (fld.tv_sec != val.tv_sec ||
+        fld.tv_nsec != val.tv_nsec) {
+        (void)fprintf(stderr,"case %d FAILED\n"
+                      "  '%s' timespec eval failed, value = %lld %ld s/b "
+                      "%lld %ld.\n",
+                      current_test, attr,
+                      (long long)fld.tv_sec, fld.tv_nsec,
+                      (long long)val.tv_sec, val.tv_nsec);
         exit(EXIT_FAILURE);
     }
 }
@@ -113,9 +131,9 @@ static void assert_real(char *attr, double fld, double val)
 
 static struct gps_data_t gpsdata;
 
-/* Case 1: TPV report */
+// Case 1: TPV report
 
-/* *INDENT-OFF* */
+// *INDENT-OFF*
 static const char json_str1[] =
     "{\"class\":\"TPV\","
     "\"device\":\"GPS#1\",\"time\":\"2005-06-19T08:12:41.89Z\","
@@ -130,7 +148,7 @@ static const char json_str1[] =
  */
 
 static const char *json_str2 = "{\"class\":\"SKY\",\
-         \"time\":\"2005-06-19T12:12:42.03Z\",   \
+         \"time\":\"2005-06-19T12:12:42.03Z\",\"nSat\":6,  \
          \"satellites\":[\
          {\"PRN\":10,\"el\":45,\"az\":196,\"ss\":34,\"used\":true},\
          {\"PRN\":29,\"el\":67,\"az\":310,\"ss\":40,\"used\":true},\
@@ -140,7 +158,7 @@ static const char *json_str2 = "{\"class\":\"SKY\",\
          {\"PRN\":27,\"el\":16,\"az\":66,\"ss\":39,\"used\":true},\
          {\"az\":301,\"el\":10,\"PRN\":21,\"used\":false,\"ss\":0}]}";
 
-/* Case 3: String list syntax */
+// Case 3: String list syntax
 
 static const char *json_str3 = "[\"foo\",\"bar\",\"baz\"]";
 
@@ -157,33 +175,59 @@ static const struct json_array_t json_array_3 = {
     .maxlen = sizeof(stringptrs)/sizeof(stringptrs[0]),
 };
 
-/* Case 4: test defaulting of unspecified attributes */
+// Case 4: test defaulting of unspecified attributes
 
 static const char *json_str4 = "{\"flag1\":true,\"flag2\":false}";
 
 static bool flag1, flag2;
 static double dftreal;
+// char can be signed or unsigned!  We can only use range 0 to 127
+static char dftbyte;
+static char maxbyte;
+static char minbyte;
+static unsigned char dftubyte;
 static int dftinteger;
+static int maxint;
+static int minint;
+static unsigned int maxuint;
 static unsigned int dftuinteger;
+static long dftlongint;
+static unsigned long dftulongint;
+static struct timespec ts;
+static struct timespec maxts;
 
 static const struct json_attr_t json_attrs_4[] = {
+    // t_byte can be signed, or unsigned, so can only use range 0 - 127
+    {"dftbyte",  t_byte, .addr.byte = &dftbyte, .dflt.byte = 1},
+    {"dftubyte", t_ubyte, .addr.ubyte = &dftubyte, .dflt.ubyte = 9},
     {"dftint",  t_integer, .addr.integer = &dftinteger, .dflt.integer = -5},
-    {"dftuint", t_integer, .addr.uinteger = &dftuinteger, .dflt.uinteger = 10},
+    {"dftuint", t_uinteger, .addr.uinteger = &dftuinteger, .dflt.uinteger = 10},
+    {"dftlongint",  t_longint, .addr.longint = &dftlongint, .dflt.longint = -6},
+    {"dftulongint", t_ulongint, .addr.ulongint = &dftulongint,
+     .dflt.ulongint = 11},
     {"dftreal", t_real,    .addr.real = &dftreal,       .dflt.real = 23.17},
+    {"maxbyte",  t_byte, .addr.byte = &maxbyte, .dflt.byte = 127},
+    {"minbyte",  t_byte, .addr.byte = &minbyte, .dflt.byte = 0},
+    {"maxint",  t_integer, .addr.integer = &maxint, .dflt.integer = 32767},
+    {"minint",  t_integer, .addr.integer = &minint, .dflt.integer = -32767},
+    {"maxuint",  t_uinteger, .addr.uinteger = &maxuint, .dflt.uinteger = 65535},
     {"flag1",   t_boolean, .addr.boolean = &flag1,},
     {"flag2",   t_boolean, .addr.boolean = &flag2,},
+    {"dftts",  t_timespec, .addr.ts = &ts, .dflt.ts = {0,0}},
+    {"maxts",  t_timespec, .addr.ts = &maxts, .dflt.ts = {0x0ffff,9}},
     {NULL},
 };
 
-/* Case 5: test DEVICE parsing */
+// Case 5: test DEVICE parsing
 
 static const char *json_str5 = "{\"class\":\"DEVICE\",\
            \"path\":\"/dev/ttyUSB0\",\
            \"flags\":5,\
-           \"driver\":\"Foonly\",\"subtype\":\"Foonly Frob\"\
+           \"driver\":\"Foonly\",\"subtype\":\"Foonly Frob\",\
+           \"cycle\":1.1,\"mincycle\":0.002\
            }";
 
-/* Case 6: test parsing of subobject list into array of structures */
+// Case 6: test parsing of subobject list into array of structures
 
 static const char *json_str6 = "{\"parts\":[\
            {\"name\":\"Urgle\", \"flag\":true, \"count\":3},\
@@ -218,13 +262,13 @@ static const struct json_attr_t json_attrs_6[] = {
     {NULL},
 };
 
-/* Case 7: test parsing of version response */
+// Case 7: test parsing of version response
 
 static const char *json_str7 = "{\"class\":\"VERSION\",\
            \"release\":\"" VERSION "\",\"rev\":\"dummy-revision\",\
            \"proto_major\":3,\"proto_minor\":1}";
 
-/* Case 8: test parsing arrays of enumerated types */
+// Case 8: test parsing arrays of enumerated types
 
 static const char *json_str8 =
      "{\"fee\":\"FOO\",\"fie\":\"BAR\",\"foe\":\"BAZ\"}";
@@ -240,40 +284,40 @@ static const struct json_attr_t json_attrs_8[] = {
     {NULL},
 };
 
-/* Case 9: Like case 6 but w/ an empty array */
+// Case 9: Like case 6 but w/ an empty array
 
 static const char *json_str9 = "{\"parts\":[]}";
 
-/* Case 10: test parsing of PPS message  */
+// Case 10: test parsing of PPS message
 
 static const char *json_strPPS = "{\"class\":\"PPS\",\"device\":\"GPS#1\"," \
     "\"real_sec\":1428001514, \"real_nsec\":1000000," \
     "\"clock_sec\":1428001513,\"clock_nsec\":999999999," \
     "\"precision\":-20,\"qErr\":-123456}";
 
-/* Case 11: test parsing of TOFF message  */
+// Case 11: test parsing of TOFF message
 
 static const char *json_strTOFF = "{\"class\":\"TOFF\",\"device\":\"GPS#1\"," \
     "\"real_sec\":1428001514, \"real_nsec\":1000000," \
     "\"clock_sec\":1428001513,\"clock_nsec\":999999999}";
 
-/* Case 12: test parsing of OSC message */
+// Case 12: test parsing of OSC message
 
 static const char *json_strOSC = "{\"class\":\"OSC\",\"device\":\"GPS#1\"," \
     "\"running\":true,\"reference\":true,\"disciplined\":false," \
     "\"delta\":67}";
 
-/* Case 13: test parsing of ERROR message, and some escape sequences */
+// Case 13: test parsing of ERROR message, and some escape sequences
 
 static char *json_strErr = "{\"class\":\"ERROR\",\"message\":" \
                            "\"Hello\b\f\n\r\t\"}";
 
-/* Case 14: test parsing of ERROR message and \u escape */
-/* per ECMA-404, \u must be followed by 4 hex digits */
+// Case 14: test parsing of ERROR message and \u escape
+// per ECMA-404, \u must be followed by 4 hex digits
 
 static char *json_strErr1 = "{\"class\":\"ERROR\",\"message\":\"0\\u00334\"}";
 
-/* Case 15: test buffer overflow of short string destination */
+// Case 15: test buffer overflow of short string destination
 
 static char *json_strOver = "{\"name\":\"\\u0033\\u0034\\u0035\\u0036\"}";
 
@@ -287,11 +331,11 @@ static const struct json_attr_t json_short_string[] = {
     {NULL},
 };
 
-/* Case 16: test buffer overflow of short string destination */
+// Case 16: test buffer overflow of short string destination
 
-static char json_strOver2[7 * JSON_VAL_MAX];  /* dynamically built */
+static char json_strOver2[7 * JSON_VAL_MAX];  // dynamically built
 
-/* Case 18: Ignore part of VERSION sentence */
+// Case 18: Ignore part of VERSION sentence
 
 static char *json_str18 =
     "{\"class\":\"VERSION\",\"release\":\"" VERSION "\","
@@ -308,7 +352,7 @@ static const struct json_attr_t json_attrs_18[] = {
     {NULL},
 };
 
-/* Case 19: Ignore part of WATCH sentence */
+// Case 19: Ignore part of WATCH sentence
 
 static char *json_str19 =
     "{\"class\":\"WATCH\",\"enable\":true,\"json\":true,\"nmea\":false,\"raw\":"
@@ -325,7 +369,7 @@ static const struct json_attr_t json_attrs_19[] = {
     {NULL},
 };
 
-/* Case 20: Ignore part of TPV sentence */
+// Case 20: Ignore part of TPV sentence
 
 static char *json_str20 =
     "{\"class\":\"TPV\",\"device\":\"/dev/"
@@ -351,7 +395,7 @@ static const struct json_attr_t json_attrs_20[] = {
     {NULL},
 };
 
-/* Case 21: Read array of integers */
+// Case 21: Read array of integers
 
 static const char *json_strInt = "[23,-17,5]";
 static int intstore[4], intcount;
@@ -363,7 +407,7 @@ static const struct json_array_t json_array_Int = {
     .maxlen = sizeof(intstore)/sizeof(intstore[0]),
 };
 
-/* Case 22: Read array of booleans */
+// Case 22: Read array of booleans
 
 static const char *json_strBool = "[true,false,true]";
 static bool boolstore[4];
@@ -376,7 +420,7 @@ static const struct json_array_t json_array_Bool = {
     .maxlen = sizeof(boolstore)/sizeof(boolstore[0]),
 };
 
-/* Case 23: Read array of reals */
+// Case 23: Read array of reals
 
 static const char *json_strReal = "[23.1,-17.2,5.3]";
 static double realstore[4];
@@ -413,21 +457,40 @@ char ed24a[] = "This, that, the other thing.",
      ed24l[] = "\\u0001\\u0007\\u0015",
      ed24u[] = "±176°42′13″ 𠜎 𠜱 𠝹 𠱓";
 
-/* *INDENT-ON* */
+static char *json_str25a = "{\"class\":\"\",\"mode\":-1}";
+static char *json_str25b = "{\"class\":\"f\",\"mode\":-2}";
+static char *json_str25c = "{\"class\":\"fo\",\"mode\":-3}";
+static char *json_str25d = "{\"class\":\"foo\",\"mode\":-4}";
+static char *json_str25e = "{\"class\":\"foob\",\"mode\":-5}";
+static char *json_str25f = "{\"class\":\"fooba\",\"mode\":-6}";
+static char *json_str25t = "{\"class\":\"TPV\",\"mode\":3}";
+
+int i25 = 25;
+static const struct json_attr_t json_attrs_25[] = {
+    {"class", t_check, .dflt.check = "TPV"},
+    {"mode", t_integer, .addr.integer = &i25, .dflt.integer = -9},
+    {NULL},
+};
+
+
+char str32[] = "\f\n\r\t\v";
+// *INDENT-ON*
 
 static void jsontest(int i)
 {
-    int status = 0;   /* libgps_json_unpack() returned status */
-    int n;            /* generic index */
+    int status = 0;      // libgps_json_unpack() returned status
+    int n;               // generic index
     char buffer[500];
     char *pbuf;
+    struct timespec expected_ts;
+    double d;
 
     if (0 < debug) {
         (void)fprintf(stderr, "Running test #%d.\n", i);
     }
     current_test = i;
 
-    /* do not keep old data! */
+    // do not keep old data!
     memset((void *)&gpsdata, 0, sizeof(gpsdata));
 
     switch (i)
@@ -436,9 +499,11 @@ static void jsontest(int i)
         status = libgps_json_unpack(json_str1, &gpsdata, NULL);
         assert_case(status);
         assert_string("device", gpsdata.dev.path, "GPS#1");
-        assert_integer("mode", gpsdata.fix.mode, 3);
-        assert_integer("time.tv_sec", gpsdata.fix.time.tv_sec, 1119168761);
-        assert_integer("time.tv_nsec", gpsdata.fix.time.tv_nsec / 10000000, 89);
+        assert_int("mode", "t_integer", gpsdata.fix.mode, 3);
+        assert_int("time.tv_sec", "t_integer", gpsdata.fix.time.tv_sec,
+                   1119168761);
+        assert_int("time.tv_nsec", "t_integer",
+                   gpsdata.fix.time.tv_nsec / 10000000, 89);
         assert_real("lon", gpsdata.fix.longitude, 46.498203637);
         assert_real("lat", gpsdata.fix.latitude, 7.568074350);
         break;
@@ -446,15 +511,15 @@ static void jsontest(int i)
     case 2:
         status = libgps_json_unpack(json_str2, &gpsdata, NULL);
         assert_case(status);
-        assert_integer("used", gpsdata.satellites_used, 6);
-        assert_integer("PRN[0]", gpsdata.skyview[0].PRN, 10);
-        assert_integer("el[0]", gpsdata.skyview[0].elevation, 45);
-        assert_integer("az[0]", gpsdata.skyview[0].azimuth, 196);
+        assert_int("used", "t_integer", gpsdata.satellites_used, 6);
+        assert_int("PRN[0]", "t_integer", gpsdata.skyview[0].PRN, 10);
+        assert_int("el[0]", "t_integer", gpsdata.skyview[0].elevation, 45);
+        assert_int("az[0]", "t_integer", gpsdata.skyview[0].azimuth, 196);
         assert_real("ss[0]", gpsdata.skyview[0].ss, 34);
         assert_boolean("used[0]", gpsdata.skyview[0].used, true);
-        assert_integer("PRN[6]", gpsdata.skyview[6].PRN, 21);
-        assert_integer("el[6]", gpsdata.skyview[6].elevation, 10);
-        assert_integer("az[6]", gpsdata.skyview[6].azimuth, 301);
+        assert_int("PRN[6]", "t_integer", gpsdata.skyview[6].PRN, 21);
+        assert_int("el[6]", "t_integer", gpsdata.skyview[6].elevation, 10);
+        assert_int("az[6]", "t_integer", gpsdata.skyview[6].azimuth, 301);
         assert_real("ss[6]", gpsdata.skyview[6].ss, 0);
         assert_boolean("used[6]", gpsdata.skyview[6].used, false);
         break;
@@ -471,25 +536,47 @@ static void jsontest(int i)
     case 4:
         status = json_read_object(json_str4, json_attrs_4, NULL);
         assert_case(status);
-        assert_integer("dftint", dftinteger, -5);    /* did the default work? */
-        assert_uinteger("dftuint", dftuinteger, 10); /* did the default work? */
-        assert_real("dftreal", dftreal, 23.17);      /* did the default work? */
+        // did the defaults work?
+        assert_int("dftbyte", "t_byte", dftbyte, 1);
+        assert_uint("dftubyte", "t_ubyte", dftubyte, 9);
+        assert_int("dftint", "t_integer", dftinteger, -5);
+        assert_uint("dftuint", "t_uinteger", dftuinteger, 10);
+        assert_int("dftlongint", "t_longint", dftlongint, -6);
+        assert_uint("dftulongint", "t_ulongint", dftulongint, 11);
+        assert_real("dftreal", dftreal, 23.17);
+        assert_int("maxbyte", "t_byte", maxbyte, 127);
+        assert_int("minbyte", "t_byte", minbyte, 0);
+        assert_int("maxint", "t_integer", maxint, 32767);
+        assert_int("minint", "t_integer", minint, -32767);
+        assert_int("maxuint", "t_uinteger", maxuint, 65535);
         assert_boolean("flag1", flag1, true);
         assert_boolean("flag2", flag2, false);
+        expected_ts.tv_sec = 0;
+        expected_ts.tv_nsec = 0;
+        assert_ts("dflts", ts, expected_ts);
+        expected_ts.tv_sec = 0x0ffff;
+        expected_ts.tv_nsec = 9;
+        assert_ts("maxts", maxts, expected_ts);
         break;
 
     case 5:
         status = libgps_json_unpack(json_str5, &gpsdata, NULL);
         assert_case(status);
         assert_string("path", gpsdata.dev.path, "/dev/ttyUSB0");
-        assert_integer("flags", gpsdata.dev.flags, 5);
+        assert_int("flags", "t_integer", gpsdata.dev.flags, 5);
         assert_string("driver", gpsdata.dev.driver, "Foonly");
+        expected_ts.tv_sec = 1;
+        expected_ts.tv_nsec = 100000000;
+        assert_ts("cycle", gpsdata.dev.cycle, expected_ts);
+        expected_ts.tv_sec = 0;
+        expected_ts.tv_nsec = 2000000;
+        assert_ts("mincycle", gpsdata.dev.mincycle, expected_ts);
         break;
 
     case 6:
         status = json_read_object(json_str6, json_attrs_6, NULL);
         assert_case(status);
-        assert_integer("dumbcount", dumbcount, 4);
+        assert_int("dumbcount", "t_integer", dumbcount, 4);
         assert_string("dumbstruck[0].name", dumbstruck[0].name, "Urgle");
         assert_string("dumbstruck[1].name", dumbstruck[1].name, "Burgle");
         assert_string("dumbstruck[2].name", dumbstruck[2].name, "Witter");
@@ -498,10 +585,10 @@ static void jsontest(int i)
         assert_boolean("dumbstruck[1].flag", dumbstruck[1].flag, false);
         assert_boolean("dumbstruck[2].flag", dumbstruck[2].flag, true);
         assert_boolean("dumbstruck[3].flag", dumbstruck[3].flag, false);
-        assert_integer("dumbstruck[0].count", dumbstruck[0].count, 3);
-        assert_integer("dumbstruck[1].count", dumbstruck[1].count, 1);
-        assert_integer("dumbstruck[2].count", dumbstruck[2].count, 4);
-        assert_integer("dumbstruck[3].count", dumbstruck[3].count, 1);
+        assert_int("dumbstruck[0].count", "t_integer", dumbstruck[0].count, 3);
+        assert_int("dumbstruck[1].count", "t_integer", dumbstruck[1].count, 1);
+        assert_int("dumbstruck[2].count", "t_integer", dumbstruck[2].count, 4);
+        assert_int("dumbstruck[3].count", "t_integer", dumbstruck[3].count, 1);
         break;
 
     case 7:
@@ -509,44 +596,54 @@ static void jsontest(int i)
         assert_case(status);
         assert_string("release", gpsdata.version.release, VERSION);
         assert_string("rev", gpsdata.version.rev, "dummy-revision");
-        assert_integer("proto_major", gpsdata.version.proto_major, 3);
-        assert_integer("proto_minor", gpsdata.version.proto_minor, 1);
+        assert_int("proto_major", "t_integer", gpsdata.version.proto_major, 3);
+        assert_int("proto_minor", "t_integer", gpsdata.version.proto_minor, 1);
         break;
 
     case 8:
         status = json_read_object(json_str8, json_attrs_8, NULL);
         assert_case(status);
-        assert_integer("fee", fee, 3);
-        assert_integer("fie", fie, 6);
-        assert_integer("foe", foe, 14);
+        assert_int("fee", "t_integer", fee, 3);
+        assert_int("fie", "t_integer", fie, 6);
+        assert_int("foe", "t_integer", foe, 14);
         break;
 
     case 9:
-        /* yes, the '6' in the next line is correct */
+        // yes, the '6' in the next line is correct
         status = json_read_object(json_str9, json_attrs_6, NULL);
         assert_case(status);
-        assert_integer("dumbcount", dumbcount, 0);
+        assert_int("dumbcount", "t_integer", dumbcount, 0);
         break;
 
     case 10:
         status = json_pps_read(json_strPPS, &gpsdata, NULL);
         assert_case(status);
         assert_string("device", gpsdata.dev.path, "GPS#1");
-        assert_integer("real_sec", gpsdata.pps.real.tv_sec, 1428001514);
-        assert_integer("real_nsec", gpsdata.pps.real.tv_nsec, 1000000);
-        assert_integer("clock_sec", gpsdata.pps.clock.tv_sec, 1428001513);
-        assert_integer("clock_nsec", gpsdata.pps.clock.tv_nsec, 999999999);
-        assert_integer("qErr", gpsdata.qErr, -123456);
+        assert_int("real_sec", "t_integer", gpsdata.pps.real.tv_sec, 1428001514);
+        assert_int("real_nsec", "t_integer", gpsdata.pps.real.tv_nsec, 1000000);
+        assert_int("clock_sec", "t_integer", gpsdata.pps.clock.tv_sec,
+                   1428001513);
+        assert_int("clock_nsec", "t_integer", gpsdata.pps.clock.tv_nsec,
+                   999999999);
+        assert_int("qErr", "t_integer", gpsdata.qErr, -123456);
         break;
 
     case 11:
-        status = json_toff_read(json_strTOFF, &gpsdata, NULL);
+        status = gps_unpack(json_strTOFF, &gpsdata);
         assert_case(status);
+        if (TOFF_SET != (TOFF_SET & gpsdata.set)) {
+            (void)fprintf(stderr, "failed TOFF_SET not set\n");
+            exit(EXIT_FAILURE);
+        }
         assert_string("device", gpsdata.dev.path, "GPS#1");
-        assert_integer("real_sec", gpsdata.toff.real.tv_sec, 1428001514);
-        assert_integer("real_nsec", gpsdata.toff.real.tv_nsec, 1000000);
-        assert_integer("clock_sec", gpsdata.toff.clock.tv_sec, 1428001513);
-        assert_integer("clock_nsec", gpsdata.toff.clock.tv_nsec, 999999999);
+        assert_int("real_sec", "t_integer", gpsdata.toff.real.tv_sec,
+                   1428001514);
+        assert_int("real_nsec", "t_integer", gpsdata.toff.real.tv_nsec,
+                   1000000);
+        assert_int("clock_sec", "t_integer", gpsdata.toff.clock.tv_sec,
+                   1428001513);
+        assert_int("clock_nsec", "t_integer", gpsdata.toff.clock.tv_nsec,
+                   999999999);
         break;
 
     case 12:
@@ -556,7 +653,7 @@ static void jsontest(int i)
         assert_boolean("running", gpsdata.osc.running, true);
         assert_boolean("reference", gpsdata.osc.reference, true);
         assert_boolean("disciplined", gpsdata.osc.disciplined, false);
-        assert_integer("delta", gpsdata.osc.delta, 67);
+        assert_int("delta", "t_integer", gpsdata.osc.delta, 67);
         break;
 
     case 13:
@@ -578,7 +675,7 @@ static void jsontest(int i)
         break;
 
     case 15:
-        /* check for string overrun caught */
+        // check for string overrun caught
         if (2 < debug) {
             (void)fprintf(stderr, "test string: %s.\n", json_strOver);
         }
@@ -586,13 +683,13 @@ static void jsontest(int i)
         status = json_read_object(json_strOver, json_short_string, NULL);
         assert_case(JSON_ERR_STRLONG != status);
         assert_string("name", json_short_string_dst, "");
-        assert_integer("count", json_short_string_cnt, 0);
+        assert_int("count", "t_integer", json_short_string_cnt, 0);
         break;
 
     case 16:
-        /* check for string overrun caught */
+        // check for string overrun caught
         json_strOver2[0] = '\0';
-        /* build a LONG test string */
+        // build a LONG test string
         strlcat(json_strOver2, "{\"name\":\"", sizeof(json_strOver2));
         for (n = 0; n < (2 * JSON_VAL_MAX); n++) {
             strlcat(json_strOver2, "\\u0033", sizeof(json_strOver2));
@@ -606,13 +703,13 @@ static void jsontest(int i)
         status = json_read_object(json_strOver2, json_short_string, NULL);
         assert_case(JSON_ERR_STRLONG != status);
         assert_string("name", json_short_string_dst, "");
-        assert_integer("count", json_short_string_cnt, 0);
+        assert_int("count", "t_integer", json_short_string_cnt, 0);
         break;
 
     case 17:
-        /* check for a different string overrun caught */
+        // check for a different string overrun caught
         json_strOver2[0] = '\0';
-        /* build a LONG test string */
+        // build a LONG test string
         strlcat(json_strOver2, "{\"name\":\"", sizeof(json_strOver2));
         for (n = 0; n < (2 * JSON_VAL_MAX); n++) {
             strlcat(json_strOver2, "\\A", sizeof(json_strOver2));
@@ -626,46 +723,46 @@ static void jsontest(int i)
         status = json_read_object(json_strOver2, json_short_string, NULL);
         assert_case(JSON_ERR_STRLONG != status);
         assert_string("name", json_short_string_dst, "");
-        assert_integer("count", json_short_string_cnt, 0);
+        assert_int("count", "t_integer", json_short_string_cnt, 0);
         break;
 
     case 18:
         status = json_read_object(json_str18, json_attrs_18, NULL);
-        assert_integer("proto_major", pvhi, 3);
-        assert_integer("proto_minor", pvlo, 14);
+        assert_int("proto_major", "t_integer", pvhi, 3);
+        assert_int("proto_minor", "t_integer", pvlo, 14);
         assert_string("release", release, VERSION);
-        assert_integer("return", status, 0);
+        assert_int("return", "t_integer", status, 0);
         break;
 
     case 19:
         status = json_read_object(json_str19, json_attrs_19, NULL);
         assert_boolean("enable", enable, true);
         assert_boolean("json", json, true);
-        assert_integer("return", status, 0);
+        assert_int("return", "t_integer", status, 0);
         break;
 
     case 20:
         status = json_read_object(json_str20, json_attrs_20, NULL);
-        assert_integer("mode", gps_mode, 3);
+        assert_int("mode", "t_integer", gps_mode, 3);
         assert_string("time", gps_time, "2019-10-04T08:51:34.000Z");
         assert_real("ept", ept, 0.005);
-        assert_integer("return", status, 0);
+        assert_int("return", "t_integer", status, 0);
         break;
 
     case 21:
         status = json_read_array(json_strInt, &json_array_Int, NULL);
         assert_case(status);
-        assert_integer("count", intcount, 3);
-        assert_integer("intstore[0]", intstore[0], 23);
-        assert_integer("intstore[1]", intstore[1], -17);
-        assert_integer("intstore[2]", intstore[2], 5);
-        assert_integer("intstore[3]", intstore[3], 0);
+        assert_int("count", "t_integer", intcount, 3);
+        assert_int("intstore[0]", "t_integer", intstore[0], 23);
+        assert_int("intstore[1]", "t_integer", intstore[1], -17);
+        assert_int("intstore[2]", "t_integer", intstore[2], 5);
+        assert_int("intstore[3]", "t_integer", intstore[3], 0);
         break;
 
     case 22:
         status = json_read_array(json_strBool, &json_array_Bool, NULL);
         assert_case(status);
-        assert_integer("count", boolcount, 3);
+        assert_int("count", "t_integer", boolcount, 3);
         assert_boolean("boolstore[0]", boolstore[0], true);
         assert_boolean("boolstore[1]", boolstore[1], false);
         assert_boolean("boolstore[2]", boolstore[2], true);
@@ -675,7 +772,7 @@ static void jsontest(int i)
     case 23:
         status = json_read_array(json_strReal, &json_array_Real, NULL);
         assert_case(status);
-        assert_integer("count", realcount, 3);
+        assert_int("count", "t_integer", realcount, 3);
         assert_real("realstore[0]", realstore[0], 23.1);
         assert_real("realstore[1]", realstore[1], -17.2);
         assert_real("realstore[2]", realstore[2], 5.3);
@@ -710,7 +807,90 @@ static void jsontest(int i)
         assert_string1("unicode", pbuf, ed24u);
         break;
 
-#define MAXTEST 24
+    // Check for strings from (25) "" to (28) "foo" --
+    // should return JSON_ERR_CHECKFAIL (16)
+    case 25:
+        status = json_read_object(json_str25a, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_CHECKFAIL);
+        break;
+
+    case 26:
+        status = json_read_object(json_str25b, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_CHECKFAIL);
+        break;
+
+    case 27:
+        status = json_read_object(json_str25c, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_CHECKFAIL);
+        break;
+
+    case 28:
+        status = json_read_object(json_str25d, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_CHECKFAIL);
+        break;
+
+    // check strings "foob" and "fooba" --  should return JSON_ERR_STRLONG (7)
+    case 29:
+        status = json_read_object(json_str25e, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_STRLONG);
+        break;
+
+    case 30:
+        status = json_read_object(json_str25f, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, -9);
+        assert_int("status", "t_integer", status, JSON_ERR_STRLONG);
+        break;
+
+    case 31: // Check string "TPV" -- should return success (0)
+        status = json_read_object(json_str25t, json_attrs_25, NULL);
+        assert_int("mode", "t_integer", i25, 3);
+        assert_int("status", "t_integer", status, 0);
+        break;
+
+    case 32: // Check that whitespace-only JSON returns JSON_ERR_EMPTY (25)
+        status = json_read_object(str32, json_attrs_25, NULL);
+        assert_int("status", "t_integer", status, JSON_ERR_EMPTY);
+        break;
+
+    //  CHeck safe_atof() since JSON depends on it.
+    case 33: // Check safe_atof(), exponent too large
+        d =  safe_atof("2e1024");
+        if ((2^1024) == d) {
+            (void)fprintf(stderr, "2^1024 == safe_atof(\"2e1024\") failed\n");
+            exit(EXIT_FAILURE);
+        }
+        break;
+
+    case 34: // Check safe_atof(), exponent too large
+        d =  safe_atof("2e-1024");    // exponent too large
+        if (isnan(d)) {
+            (void)fprintf(stderr, "NAN == safe_atof(\"-2e1024\") failed\n");
+            exit(EXIT_FAILURE);
+        }
+        break;
+
+    case 35: // Check safe_atof(), exponent too large
+        d =  safe_atof("2e1025");    // exponent too large
+        if (!isinf(d)) {
+            (void)fprintf(stderr, "INFINITY == safe_atof(\"2e1025\") failed\n");
+            exit(EXIT_FAILURE);
+        }
+        break;
+
+    case 36: // Check safe_atof(), exponent too large
+        d =  safe_atof("2e-1025");    // exponent too large
+        if (0.0 != d) {
+            (void)fprintf(stderr, "0.0 == safe_atof(\"2e-1025\") failed\n");
+            exit(EXIT_FAILURE);
+        }
+        break;
+
+#define MAXTEST 36
 
     default:
         (void)fputs("Unknown test number\n", stderr);
@@ -751,9 +931,9 @@ int main(int argc UNUSED, char *argv[]UNUSED)
 
     (void)fprintf(stderr, "JSON unit tests\n");
 
-    if (individual)
+    if (individual) {
         jsontest(individual);
-    else {
+    } else {
         int i;
         for (i = 1; i <= MAXTEST; i++) {
             jsontest(i);
@@ -765,5 +945,4 @@ int main(int argc UNUSED, char *argv[]UNUSED)
     exit(EXIT_SUCCESS);
 }
 
-/* end */
 // vim: set expandtab shiftwidth=4

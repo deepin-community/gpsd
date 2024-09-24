@@ -1,0 +1,21 @@
+Author: Boian Bonev <bbonev@ipacct.com>
+Date:   Tue Jun 20 18:16:41 2023 +0000
+Forwarded: a462f469539cf9edfa528e358988ff5ddadc64c0
+
+    Get rid of PATH_MAX
+
+--- a/include/os_compat.h
++++ b/include/os_compat.h
+@@ -138,6 +138,12 @@ size_t strnlen(const char *s, size_t max
+ // getting scons to test for sincos() and pass -Werror not possible
+ void gpsd_sincos(double x, double *sinp, double *cosp);
+ 
++#ifdef __GNU__ /* building on GNU/Hurd */
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++#endif
++
+ # ifdef __cplusplus
+ }
+ # endif

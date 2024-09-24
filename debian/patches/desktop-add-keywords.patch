@@ -1,0 +1,38 @@
+From: Boian Bonev <bbonev@ipacct.com>
+Date: Tue, 21 Jul 2020 00:54:58 +0300
+Subject: add keywords and remove encoding
+
+Fix lintian warnings:
+ - desktop-entry-contains-encoding-key
+ - desktop-entry-lacks-keywords-entry
+---
+ packaging/X11/xgps.desktop      | 2 +-
+ packaging/X11/xgpsspeed.desktop | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+--- a/packaging/X11/xgps.desktop
++++ b/packaging/X11/xgps.desktop
+@@ -1,5 +1,4 @@
+ [Desktop Entry]
+-Encoding=UTF-8
+ Name=xgps
+ GenericName=GPS information
+ Comment=Display GPS information from a gpsd daemon
+@@ -8,3 +7,4 @@ Icon=/usr/local/share/gpsd/icons/gpsd-lo
+ Terminal=false
+ Type=Application
+ Categories=Application;Maps;Utility;
++Keywords=gps;satellite;lock;realtime
+--- a/packaging/X11/xgpsspeed.desktop
++++ b/packaging/X11/xgpsspeed.desktop
+@@ -1,5 +1,4 @@
+ [Desktop Entry]
+-Encoding=UTF-8
+ Name=xgpsspeed
+ GenericName=GPS speedometer
+ Comment=Display GPS speed from a gpsd daemon
+@@ -8,3 +7,4 @@ Icon=/usr/local/share/gpsd/icons/gpsd-lo
+ Terminal=false
+ Type=Application
+ Categories=Application;Maps;Utility;
++Keywords=gps;speed;realtime

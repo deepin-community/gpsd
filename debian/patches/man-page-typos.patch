@@ -1,0 +1,28 @@
+From: Boian Bonev <bbonev@ipacct.com>
+Date: Mon May 15 20:18:04 2023 +0000
+Subject: Fix spelling
+Forwarded: https://gitlab.com/gpsd/gpsd/-/merge_requests/358
+
+Fix spelling mistakes in man pages
+--- a/man/gpsfake.adoc
++++ b/man/gpsfake.adoc
+@@ -37,7 +37,7 @@ order the files are specified.
+ 
+ *gpsfake* does not require root privileges, but will run fine as root.
+ It can be run concurrently with a production *gpsd* instance without
+-causing problems, as long as you use the *-P* option.  Runing under sudo
++causing problems, as long as you use the *-P* option.  Running under sudo
+ will cause minor loss of functionality.
+ 
+ The logfiles may contain packets in any supported format, including in
+--- a/man/gpsplot.adoc
++++ b/man/gpsplot.adoc
+@@ -89,7 +89,7 @@ the *gps*(1) man page
+ 
+ == ENVIRONMENT
+ 
+-You can set the environment varable *MPLBACKEND* to your desired
++You can set the environment variable *MPLBACKEND* to your desired
+ Matplotlib backend.  This save you from using *-b BACKEND* every time
+ you run *gpsplot*.
+ 

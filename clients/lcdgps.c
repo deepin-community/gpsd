@@ -122,35 +122,35 @@ ssize_t sockwriteline(int sockd,const void *vptr,size_t n) {
   return(n);
 }
 
-/* send a command to the LCD */
+// send a command to the LCD
 int send_lcd(char *buf) {
 
   int res;
   char rcvbuf[256];
   size_t outlen;
 
-  /* Limit the size of outgoing strings. */
-  outlen = strlen(buf);
+  // Limit the size of outgoing strings. codacy hates strlen()
+  outlen = strnlen(buf, 256);
   if (outlen > 255) {
     outlen = 256;
   }
 
-  /* send the command */
+  // send the command
   (void)sockwriteline(sd,buf,outlen);
 
-  /* TODO:  check return status */
+  // TODO:  check return status
 
-  /* read the data */
+  // read the data
   res=sockreadline(sd,rcvbuf,sizeof(rcvbuf)-1);
 
-  /* null-terminate the string before printing */
-  /* rcvbuf[res-1]=0; FIX-ME: not using this at the moment... */
+  // null-terminate the string before printing
+  // rcvbuf[res-1]=0; FIX-ME: not using this at the moment...
 
-  /* return the result */
+  // return the result
   return(res);
 }
 
-/* reset the LCD */
+// reset the LCD
 static void reset_lcd(void) {
 
   /* Initialize.  In theory, we should look at what's returned, as it
@@ -168,16 +168,16 @@ static void reset_lcd(void) {
 
 static enum deg_str_type deg_type = deg_dd;
 
-/* This gets called once for each new sentence. */
+// This gets called once for each new sentence.
 static void update_lcd(struct gps_data_t *gpsdata)
 {
   char tmpbuf[255];
-  char *gridsquare;
+  const char *gridsquare;
 
-  /* Get our location in Maidenhead. */
+  // Get our location in Maidenhead.
   gridsquare = maidenhead(gpsdata->fix.latitude,gpsdata->fix.longitude);
 
-  /* Fill in the latitude and longitude. */
+  // Fill in the latitude and longitude.
   if (gpsdata->fix.mode >= MODE_2D) {
     int track;
     char *s;
@@ -212,7 +212,7 @@ static void update_lcd(struct gps_data_t *gpsdata)
     send_lcd("widget_set gpsd three 1 3 {n/a}\n");
   }
 
-  /* Fill in the altitude and fix status. */
+  // Fill in the altitude and fix status.
   if (gpsdata->fix.mode == MODE_3D) {
     int n;
     for(n=0;n<CLIMB-2;n++) climb[n]=climb[n+1];

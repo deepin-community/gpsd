@@ -1,10 +1,17 @@
-= GPSD Client HOWTO =
-:description: This document is a guide to interfacing client applications with GPSD.
-:keywords: time, GPSD, NTP, time, precision, 1PPS, PPS, stratum, jitter
+= GPSD Client HOWTO
 Eric S. Raymond <esr@thyrsus.com>
-v1.19, Jul 2015
+:author: Eric S. Raymond
+:date: 26 July 2022
+:description: This document is a guide to interfacing client applications with GPSD.
+:email: <esr@thyrsus.com>
+:keywords: time, GPSD, NTP, time, precision, 1PPS, PPS, stratum, jitter
+:sectlinks:
+:source-highlighter: rouge
+:toc: macro
 
-== Introduction ==
+include::inc-menu.adoc[]
+
+== Introduction
 
 This document is a guide to interfacing client applications with GPSD.
 It surveys the available bindings and their use cases.  It also explains
@@ -12,7 +19,7 @@ some sharp edges in the client API which, unfortunately, are fundamental
 results of the way GPS sensor devices operate, and suggests tactics
 for avoiding being cut.
 
-== Sensor behavior matters ==
+== Sensor behavior matters
 
 GPSD handles two main kinds of sensors: GPS receivers and AIS
 receivers. It has rudimentary support for some other kinds of
@@ -84,7 +91,7 @@ device-type-independent datagrams, but it can't impose timing and
 sequencing regularities on them that the underlying device doesn't
 already obey.
 
-== What GPSD does, and what it cannot do ==
+== What GPSD does, and what it cannot do
 
 GPSD solves some of the problems with GPS/AIS sensors. First:
 multiplexing; it allows multiple applications to get sensor data
@@ -105,7 +112,7 @@ As you'll see, these constraints explain most of the design of the GPSD
 wire protocol, and of the library APIs your client application
 will be using.
 
-== How the GPSD wire protocol works ==
+== How the GPSD wire protocol works
 
 While GPSD project ships several library bindings that will hide the
 details of the wire protocol from you, you'll understand the library APIs
@@ -119,6 +126,7 @@ port 2947 on the host your sensors are attached to, usually
 localhost. On connection, the gpsd daemon will ship a banner that
 looks something like this:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"VERSION","release":"2.93","rev":"2010-03-30T12:18:17",
                    "proto_major":3,"proto_minor":2}
@@ -133,6 +141,7 @@ daemon you want it.  (Remember that it's trying to minimize the amount
 of time the devices are held open and in a fully powered state.)  You
 do this by issuing a WATCH command:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 ?WATCH={"enable":true,"json":true}
 -----------------------------------------------------------------------------
@@ -144,6 +153,7 @@ but JSON is the most capable and usually what you want.
 A side effect of the WATCH command is that the daemon will ship you
 back some information on available devices.
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"DEVICES","devices":[{"class":"DEVICE","path":"/dev/ttyUSB0",
                    "activated":1269959537.20,"native":0,"bps":4800,"parity":"N",
@@ -171,6 +181,7 @@ them and watches for incoming packets that it can recognize.  *After
 a variable delay*, it will ship a notification that looks something
 like this:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"DEVICE","path":"/dev/ttyUSB0","activated":1269960793.97,
                  "driver":"SiRF binary","native":1,"bps":4800,
@@ -219,6 +230,7 @@ However, until the sensor achieves satellite lock, those fixes will be
 "mode 1" - no valid data (mode 2 is a 2D fix, mode 3 is a 3D fix).
 Here's what that looks like:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"TPV","device":"/dev/ttyUSB0",
                "time":"2010-04-30T11:47:43.28Z","ept":0.005,"mode":1}
@@ -228,6 +240,7 @@ Occasionally you'll get another kind of sentence, SKY, that reports a
 satellite skyview.  But TPV is the important one.  Here's what it
 looks like when the sensor has a fix to report:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"TPV","time":"2010-04-30T11:48:20.10Z","ept":0.005,
                "lat":46.498204497,"lon":7.568061439,"alt":1327.689,
@@ -242,6 +255,7 @@ If you have an AIS receiver attached, it too will have been opened
 and autobauded and protocol-sniffed after your WATCH.  The stream of
 JSON objects will then include things like this:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 {"class":"AIS","type":5,"repeat":0,"mmsi":351759000,"scaled":true,
                "imo":9134270,"ais_version":0,"callsign":"3FOF8",
@@ -255,6 +269,7 @@ JSON objects will then include things like this:
 
 When your application shuts down, it can cancel its watch:
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 ?WATCH={"enable":false}
 -----------------------------------------------------------------------------
@@ -266,6 +281,7 @@ But it is good manners.
 
 Another way to use the daemon is with the ?POLL command  To do this, issue
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 ?WATCH={"enable":true}
 -----------------------------------------------------------------------------
@@ -273,6 +289,7 @@ Another way to use the daemon is with the ?POLL command  To do this, issue
 This activates all devices without enabling streaming of reports.  You
 can then say "?POLL;" to poll gpsd's recorded data.
 
+[source%nowrap,json]
 -----------------------------------------------------------------------------
 ?POLL;
 {"class":"POLL","time":"2012-04-05T15:00:01.501Z","active":1,
@@ -298,14 +315,14 @@ high. As long as your application checks for and reads socket data no
 less often than once a second, you won't -- and a second is a *lot* of
 time in which to come back around your main loop.
 
-== Interfacing from the client side ==
+== Interfacing from the client side
 
 The gpsd daemon exports data in three different ways: via a sockets
 interface, via DBUS broadcasts, and via a shared-memory interface,
 It is possible one or more of these may be configured out in your
 installation.
 
-=== The sockets interface ===
+=== The sockets interface
 
 The GPSD project provides client-side libraries in C, C++, and Python
 that exercise the sockets export.  A Perl module is separately
@@ -379,7 +396,7 @@ Set watch policy. What you should use instead of send().
 |gps_waiting()		|gpsmm.waiting()	|gps.waiting()		|
 Blocking check with timeout to see if input is waiting.
 |gps_read()		|gpsmm.read()		|gps.read()		|
-Blocking read for data from the daemon.
+Read data from the daemon.  Usually blocking.
 |gps_unpack()		|			|gps.unpack()		|
 Parse JSON from a specified buffer into a session structure
 |gps_close()		|gpsmm.~gpsmm()		|gps.close()		|
@@ -455,7 +472,7 @@ most frequently shipped sentences, Type 1/2/3). That way the read
 buffer will never contain both a message and a later message of the
 same type that steps on it.
 
-=== Shared-memory interface ===
+=== Shared-memory interface
 
 Whenever gpsd recognizes a packet from any attached device, it writes
 the accumulated state from that device to a shared memory segment.  The
@@ -485,14 +502,14 @@ interface.
 
 The shared-memory interface is not yet available from Python.
 
-=== D-Bus broadcasts ===
+=== D-Bus broadcasts
 
 If your system supports D-Bus, gpsd broadcasts a signal with path /org/gpsd,
 interface "org.gpsd", and name "fix" whenever it received a position
 report from any device attached to it.  See the gpsd(8) manual page for
 details of the binary payload layout.
 
-== C Examples ==
+== C Examples
 
 The source distribution includes two example clients in C;
 gpxlogger.c and cgps.c.
@@ -505,10 +522,11 @@ also hw processing user commands works.  Note the use of the curses
 nodelay function to ensure that wgetch() does not block the GPS
 polling loop.
 
-== C++ examples ==
+== C++ examples
 
 The following code skeleton implements a C++ client:
 
+[source%nowrap,c,numbered]
 ----------------------------------------------------------------------
 
 int main(void)
@@ -544,13 +562,14 @@ Initialization) model; you close it by deallocating it.
 
 Look at test_gpsmm.cpp in the distribution for a full example.
 
-== Python examples ==
+== Python examples
 
 There's a very simple Python example analogous to gpxlogger attached
 to the source code for the gps.py library.
 
 The heart of it is this code:
 
+[source%nowrap,python]
 -----------------------------------------------------------------------------
     session = gps(**opts)
     session.stream(WATCH_ENABLE|WATCH_NEWSTYLE)
@@ -561,61 +580,65 @@ The heart of it is this code:
 If you need to intersperse other processing in a main event loop,
 like this:
 
+[source%nowrap,python]
 ----------------------------------------------------------------------
 
 session = gps(mode=WATCH_ENABLE)
-try:
-    while True:
-        # Do stuff
-        report = session.next()
-        # Check report class for 'DEVICE' messages from gpsd.  If
-        # we're expecting messages from multiple devices we should
-        # inspect the message to determine which device
-        # has just become available.  But if we're just listening
-	# to a single device, this may do.
-        if report['class'] == 'DEVICE':
-            # Clean up our current connection.
-            session.close()
-            # Tell gpsd we're ready to receive messages.
-            session = gps(mode=WATCH_ENABLE)
-	# Do more stuff
-except StopIteration:
-    print "GPSD has terminated"
+while 0 == session.read()
+    if not hasattr(session, "data"):
+        # no data yet
+        continue;
+
+    # Check data class for 'DEVICE' messages from gpsd.  If
+    # we're expecting messages from multiple devices we should
+    # inspect the message to determine which device
+    # has just become available.  But if we're just listening
+    # to a single device, this may do.
+    if session.data['class'] == 'DEVICE':
+        # Clean up our current connection.
+        session.close()
+        # Tell gpsd we're ready to receive messages.
+        session = gps(mode=WATCH_ENABLE)
+    # Do more stuff
+
+print "GPSD has terminated"
 
 ----------------------------------------------------------------------
 
-Each call to the iterator yields a report structure until the daemon
-terminates, at which point the iterator next() method will raise
-StopIteration and the loop will terminate.
+Each call to session.read() will fill session.response with the message
+just received from *gpsd*. If that message was gpsd JSON then the JSON
+fields are decoded into session.data. When the daemon terminates,
+session.read() will return non-zero, and then the loop will terminate.
 
-The report object returned by next() can be accessed either as a dictionary
-or as an object.  As a dictionary, it is the raw contents of the last
-JSON response re-encoded in plain ASCII.  For convenience, you may
-also access it as an object with members for each attribute in the
-dictionary.  It is especially useful to know that the object will
-always have a "class" member giving the response type (TPV, SKY,
-DEVICE, etc.) as a string.
+The session.data object can be accessed either as a dictionary or as
+an object. As a dictionary, it is the raw contents of the last JSON
+response re-encoded in plain ASCII. For convenience, you may also access
+it as an object with members for each attribute in the dictionary. It
+is especially useful to know that the object will always have a "class"
+member giving the response type (TPV, SKY, DEVICE, etc.) as a string.
+
+See "Gpsd Client Example Code" for more client code examples.
 
 For more interesting examples integrated with X and GTK, see xgps and
 xgpsspeed.
 
-== Other Client Bindings ==
+== Other Client Bindings
 
 There are a couple of client bindings for GPSD that are maintained
 separately from the GPSD distribution. We don't try to document their
 APIs here, but just provide pointers to them.
 
-== Java ==
+== Java
 
 There is a Java binding, described at http://gpsd4java.forge.hoegergroup.de/
 This binding is available at maven central. See that web page for how
 to use it in a maven build.
 
-== Perl ==
+== Perl
 
 There's a Perl client library at http://search.cpan.org/dist/Net-GPSD3/
 
-== Backward Incompatibility and Future Changes ==
+== Backward Incompatibility and Future Changes
 
 The C/C++ binding makes available two preprocessor symbols,
 GPSD_API_MAJOR_VERSION and GPSD_API_MINOR_VERSION, in gps.h.

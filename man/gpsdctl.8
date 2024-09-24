@@ -1,73 +1,97 @@
 '\" t
 .\"     Title: gpsdctl
-.\"    Author: [see the "AUTHOR" section]
-.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 6 December 2020
+.\"    Author: Eric S. Raymond
+.\" Generator: Asciidoctor 2.0.18
+.\"      Date: 2023-01-10
 .\"    Manual: GPSD Documentation
-.\"    Source: The GPSD Project
+.\"    Source: GPSD, Version 3.25
 .\"  Language: English
 .\"
-.TH "GPSDCTL" "8" "6 December 2020" "The GPSD Project" "GPSD Documentation"
-.\" -----------------------------------------------------------------
-.\" * Define some portability stuff
-.\" -----------------------------------------------------------------
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-.\" http://bugs.debian.org/507673
-.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
-.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.TH "GPSDCTL" "8" "2023-01-10" "GPSD, Version 3.25" "GPSD Documentation"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
-.\" -----------------------------------------------------------------
-.\" * set default formatting
-.\" -----------------------------------------------------------------
-.\" disable hyphenation
+.ss \n[.ss] 0
 .nh
-.\" disable justification (adjust text to left margin only)
 .ad l
-.\" -----------------------------------------------------------------
-.\" * MAIN CONTENT STARTS HERE *
-.\" -----------------------------------------------------------------
+.de URL
+\fI\\$2\fP <\\$1>\\$3
+..
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
 .SH "NAME"
 gpsdctl \- tool for sending commands to gpsd over its control socket
 .SH "SYNOPSIS"
-.HP \w'\fBgpdsctl\fR\ 'u
-\fBgpdsctl\fR \fIaction\fR \fIdevice\fR
+.sp
+\fBgpsdctl\fP \fIaction\fP \fIdevice\fP
+.SH "OPTIONS"
+.sp
+\fBaction\fP
+.RS 4
+may be \fIadd\fP or \fIremove\fP. If no daemon instance
+is running when an \fIadd\fP is requested, this program will launch one.
+.RE
+.sp
+\fBdevice\fP
+.RS 4
+argument should be the pathname of a device. The device
+will be opened by \fBgpsd\fP to read sensor data.
+.RE
 .SH "DESCRIPTION"
-.PP
-This is a tool for sending an instance of
-gpsd
-commands over its control socket to add or remove devices from the daemon\*(Aqs device list\&. It is not intended to be called by users, but rather by the Linux hotplug system and similar facilities\&.
-.PP
-The action argument may be "\fBadd\fR" or "\fBremove\fR"\&. If no daemon instance is running when an add is requested, this program will launch one\&.
-.PP
-The "device" argument should be the pathname of a device\&. A device on the list will be opened to read sensor data whenever a client requests a watch\&.
-.PP
-Two environment variables are interpreted\&.
-.PP
-\fBGPSD_SOCKET\fR
-sets the location of the control socket\&. If the effective user ID of this program is root then it usually defaults to
-/run/gpsd\&.sock, although some systems may use the deprecated
-/var/run/gpsd\&.sock
-instead\&. Non\-root users will use
-/tmp/gpsd\&.sock\&.
-.PP
-\fBGPSD_OPTIONS\fR
-may be a list of options to be passed to
-gpsd
-when this tool launches it\&. It defaults to an empty string\&.
+.sp
+This is a tool for sending an instance of \fBgpsd\fP commands over its control
+socket to add or remove devices from the daemon\(cqs device list. It is not
+intended to be called by users, but rather by the Linux hotplug system
+and similar facilities.
+.SH "ENVIRONMENT"
+.sp
+Two environment variables are interpreted.
+.sp
+\fBGPSD_SOCKET\fP
+.RS 4
+sets the location of the control socket. If the effective
+user ID of this program is root then it usually defaults to
+\fI/run/gpsd.sock\fP, although some systems may use the deprecated
+\fI/var/run/gpsd.sock\fP instead. Non\-root users will use \fI/tmp/gpsd.sock\fP.
+.RE
+.sp
+\fBGPSD_OPTIONS\fP
+.RS 4
+may be a list of options to be passed to gpsd when this
+tool launches it. It defaults to an empty string.
+.RE
 .SH "RETURN VALUES"
-.PP
-1 if the action was unknown or the write to the control socket failed, 0 otherwise
+.sp
+\fB0\fP
+.RS 4
+on success.
+.RE
+.sp
+\fB1\fP
+.RS 4
+if the action was unknown or the write to the control socket failed,
+.RE
 .SH "SEE ALSO"
-.PP
-\fBgpsd\fR(8),
-\fBgpsctl\fR(1),
-\fBgps\fR(1),
-\fBlibgps\fR(3),
-\fBlibgpsmm\fR(3),
-\fBgpsprof\fR(1),
-\fBgpsfake\fR(1)\&.
+.sp
+\fBgpsd\fP(8), \fBgpsctl\fP(1), \fBgps\fP(1), \fBlibgps\fP(3), \fBlibgpsmm\fP(3), \fBgpsprof\fP(1),
+\fBgpsfake\fP(1).
+.SH "RESOURCES"
+.sp
+\fBProject web site:\fP \c
+.URL "https://gpsd.io/" "" ""
+.SH "COPYING"
+.sp
+This file is Copyright 2013 by the GPSD project
+.br
+SPDX\-License\-Identifier: BSD\-2\-clause
 .SH "AUTHOR"
-.PP
-Eric S\&. Raymond
-<esr@thyrsus\&.com>\&.
+.sp
+Eric S. Raymond

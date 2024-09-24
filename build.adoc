@@ -1,9 +1,16 @@
 = Building GPSD from source
+:date: 17 November 2021
+:description: Steps for Building GPSD from source
+:docinfodir: www
+:keywords: GPSD, GPS, installation
+:robots: index,follow
+:sectlinks:
+:toc: macro
+
+include::www/inc-menu.adoc[]
 
 This is a guide to building GPSD from a bare source tree.  It includes
-guidance on how to cross-build the package.  This document overlaps and
-interweaves with INSTALL.adoc.  INSTALL.adoc contains distribution
-specific advice.
+guidance on how to cross-build the package.
 
 Some hints for people building binary packages are in
 packaging/README.PACKAGERS.
@@ -166,7 +173,7 @@ On Gentoo systems that package is named:
 |dev-python/pyserial
 |============================================================================
 
-The gpsplot client requires Matplotlib to do its job of creating dynamic
+The *gpsplot( client requires Matplotlib to do its job of creating dynamic
 plots.
 
 On Gentoo systems that package is named:
@@ -177,6 +184,7 @@ On Gentoo systems that package is named:
 === Scons
 
 You will need scons version 2.3.0 (from 2013-03-02) or later to build the code.
+(Note that there is no evidence of recent testing of scons older than about 3.1.)
 
 === Optional build components
 
@@ -186,27 +194,48 @@ various additional capabilities and extensions:
 |============================================================================
 |C++ compiler     | allows building libgpsmm C++ wrapper for client library
 |Qt 4.53+         | allows building libQgpsmm C++ wrapper for client library
-|libcap           | Capabilities library, improved security under Linux
 |(n)curses        | curses screen-painting library, used by cgps and gpsmon
 |pps-tools        | adds support for the KPPS API, for improved timing
 |libusb           | Userspace access to USB devices
+|dbus             | D-Bus support
 |============================================================================
+
+If you have libusb-1.0.0 or later, the GPSD build will autodetect
+this and use it to discover Garmin USB GPSes, rather than groveling
+through /proc/bus/usb/devices (which has been deprecated by the
+Linux kernel team).
 
 On Gentoo systems those packages are named:
 
 |=============================================================================
 |dev-qt/qtcore       | Basic Qt
 |dev-qt/qtnetwork    | Qt network components
-|sys-libs/libcap     | Capabilities library
 |sys-libs/ncurses    | curses screen-painting library, used by cgps and gpsmon
 |net-misc/pps-tools  | adds support for the KPPS API, for improved timing
 |virtual/libusb      | Userspace access to USB devices
+|sys-apps/dbus       | D-Bus
 |=============================================================================
 
-If you have libusb-1.0.0 or later, the GPSD build will autodetect
-this and use it to discover Garmin USB GPSes, rather than groveling
-through /proc/bus/usb/devices (which has been deprecated by the
-Linux kernel team).
+Debian/Ubuntu, and Fedora/RHEL, derived systems often split packages
+into binary, and development packages. Raspbian is Debian derived. This
+does not apply to Gentoo derived systems.
+
+These development packages usually have a "-dev" suffix. Installing the
+development package usually installs the binary package for you.
+
+The development Debian/Ubuntu/Raspbian pacakages are:
+
+|==============================================================================
+|libncurses5-dev      | curses screen-painting library, used by cgps and gpsmon
+|libusb-1.0-0-dev     | userspace USB programming library development files
+|libdbus-1-dev        | D-Bus Development package
+|==============================================================================
+
+The development Fedora/RHEL packages are:
+
+|==============================================================================
+|ncurses-devel        | curses screen-painting library, used by cgps and gpsmon
+|==============================================================================
 
 You can build libQgpsmm if you have Qt (specifically QtCore and
 QtNetwork modules) version 4.5.3 or higher.  You will also need a C++
@@ -215,23 +244,13 @@ compiler supported by Qt (tested on GCC 4.4.0/mingw on Windows and GCC
 http://qt.nokia.com/doc/4.6/platform-specific.html for platform
 specific building documentation
 
-For working with DBUS, you'll need the DBUS development
-headers and libraries installed.  Under Debian/Ubuntu this
-is the package libdbus-1-dev.
-
-Under Ubuntu, the ncurses package you want is libncurses5-dev.  Under
-Fedora, it's ncurses-devel.  Depending on how your distribution
-packages ncurses you may also require libtinfo5, a separate terminfo
-library.
+Depending on how your distribution packages ncurses you may also require
+libtinfo5, a separate terminfo library.
 
 On some older versions of Ubuntu (notably 11.10) there is a packaging
 defect that may cause your build to blow up in SCons. It's a missing
 package info file for the tinfo library. To fix this, install the file
 packaging/tinfo.pc in /usr/lib/pkgconfig/tinfo.pc. 13.10 fixed this.
-
-We've seen a report that compiling on the Raspberry Pi fails with
-a complaint about curses.h not being found.  You need to install
-Raspbian's curses development library if this happens.
 
 If your kernel provides the RFC 2783 KPPS (kernel PPS) API, gpsd will
 use that for extra accuracy. Many Linux distributions have a package
@@ -239,23 +258,20 @@ called "pps-tools" that will install KPPS support and the timepps.h
 header file.  We recommend you do that.  If your kernel is built in
 the normal modular way, this package installation will suffice.
 
-For building from the source tree, or if you change the man page
-source, xslt and docbook xsl style files are used to generate nroff
--man source from docbook xml.  The following packages are used in this
-process:
+For building from the source tree, or if you change the man page source,
+Asciidoctor is to generate nroff -man source from asciidoc markup.  The
+following packages are used in this process:
 
 |============================================================================
-|libxslt            | xsltproc is used to build man pages from xml
-|docbook-xsl        | style file for xml to man translation
-|xmlto              | DocBook formatter program
-|asciidoctor        | Documentation front end with light markup
+|asciidoctor          | Documentation front end with light markup
 |============================================================================
 
-On Gentoo systems those packages are named:
+If both are present, then AsciiDoctor is preferred.
+
+On Gentoo systems this packages is named:
 
 |==============================================================================
-|app-text/xmlto                   | DocBook formatter program
-|app-text/asciidoctor             | Documentation front end with light markup
+|dev-ruby/asciidoctor | Documentation front end with light markup
 |==============================================================================
 
 The build degrades gracefully in the absence of any of these. You should
@@ -315,20 +331,6 @@ need to build with implicit_link=no.  If this happens, please report
 your platform, ideally along with a way of identifying it from Python,
 to the GPSD maintainers.
 
-If, while building, you see a complaint that looks like this:
-
---------------------------------------------------------------------
-I/O error : Attempt to load network entity http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd
---------------------------------------------------------------------
-
-it means the xmlto document formatter is failing to fetch a stylesheet it
-needs over the network. Probably this means you are doing a source
-build on a machine without live Internet access.  The workaround
-for this is to temporarily remove xmlto from your command path so GPSD
-won't try building the documentation.  The actual fix is to install
-DocBook on your machine so there will be a local copy of the
-stylesheet where xmlto can find it.
-
 After building, please run 'scons check' to test the correctness
 of the build.  It is not necessary to install first.  Python is
 required for regression tests. If any of the tests fail, you probably
@@ -336,7 +338,7 @@ have a toolchain issue.  The most common such problem is failures of
 strict C99 conformance in floating-point libraries.
 
 Once you have verified that the code is working, "scons install"
-will install it it in the system directories. "scons uninstall" will
+will install it in the system directories. "scons uninstall" will
 undo this. Note: because scons is a single-phase build system, this
 may recompile everything. If you want feature-configuration options,
 you need to specify them here.
@@ -349,6 +351,753 @@ You will need php and php-gd installed to support the PHP web page
 generator included with the distribution. To install it, copy the file
 'gpsd.php' to your HTML document directory. Then see the
 post-installation instructions in INSTALL.adoc for how to configure it.
+
+=== Setting prefix and customizing install locations
+
+Adding prefix=/usr/foo will cause scons to install to /usr/foo instead
+of the default /usr/local, much as --prefix=/usr/foo works with
+autoconf.
+
+In addition, there are a number of other scons command-line variables
+that can be used to control the location of various install
+directories.  Many of these, such as bindir -- which unsurprisingly
+defaults to "bin" -- are unlikely to be ever used.  Generally, these
+can be set to absolute paths or relative paths.  Relative paths are
+under prefix.  See SConscript and search for "bindir" to see the list.
+
+Some of these variables are typically used to adapt to differing
+layout conventions.  For example, pkgsrc would use
+docdir=share/doc/gpsd as per-package documentation is placed in
+prefix/share/doc/PKGNAME, and mandir=man as man pages are in
+prefix/man rather than prefix/share/man.
+
+The includedir= argument sets the location to which gpsd's include
+files (gps.h, libgpsmm.h) are installed.  So using prefix=/usr/foo and
+includedir=/usr/bar/include will install everything but includes in
+/usr/foo and put the includes in /usr/bar.  This is highly unlikely to
+be desired, but given to illustrate the behavior.
+
+The includedir=/usr/foo/include argument has no other effects; in
+particular it does add -I/usr/foo/include to compilation lines.
+
+=== Specifiying locations for prerequisites
+
+This section explains how to configure the build to find
+prerequisites.  It can be skipped by those who find that the build
+succeeds.
+
+Software that is needed to build gpsd may in general be in various
+locations.  (While many GNU/Linux users doing a straightforward build
+will have all prerequisites in /usr, most other operating systems have
+additional software in other than /usr, and even on Linux one may wish
+to build a separate copy of gpsd with alternate versions of
+prerequisites.)  
+
+The build will invoke the compiler and linker, so that headers and
+libraries in the default compiler and linker search paths will be
+found without any additional configuration.
+
+In addition, scons will use pkgconfig to find some prerequisites.
+These will be found if the pc files are in the default pkgconfig
+search path, and the resulting -I and -L flags added to the compile
+and link lines.
+
+The gpsd scons build scripts also support passing in CPPFLAGS and
+LDFLAGS via environment variables, similar to how these are used with
+autoconf and almost all other build systems.  As an example,
+CPPFLAGS=-I/usr/foo/include will cause -I/usr/foo/include to be added
+to compilation lines.
+
+=== Gentoo Build and Installation
+
+A cheat sheet for building gpsd from git source on a freshly installed
+Gentoo.  Perform these steps, in order, as root.
+
+The '--noreplace' option to 'emerge' prevents reinstalling packages that
+are already installed.
+
+----
+# install the required build tools
+emerge --noreplace dev-util/scons dev-vcs/git
+
+# optional, to support the KPPS API, for improved timing
+emerge --noreplace net-misc/pps-tools
+
+# optional, for cgps and gpsmon
+emerge --noreplace sys-libs/ncurses
+
+# optional, for ubxtool and zerl serial port support
+emerge --noreplace dev-python/pyserial
+
+# optional, to support Garmin USB devices
+emerge --noreplace virtual/libusb
+
+# optional, to support Bluetooth GPS devices
+emerge --noreplace net-wireless/bluez
+
+# Skip the following optionals on a minimal system:
+
+# optional, to build man page and html pages
+emerge --noreplace dev-ruby/asciidoctor
+
+# Optionals for desktop (X) systems:
+
+# optional, for xgps and xgpsspeed
+emerge --noreplace dev-python/pygobject dev-python/pycairo
+
+# optional, for gpsplot
+emerge --noreplace dev-python/matplotlib
+
+# D-Bus support
+emerge --noreplace sys-apps/dbus
+
+# To build Qt compatible library.
+emerge --noreplace dev-qt/qtcore dev-qt/qtnetwork
+
+# "scons check" requires bc
+emerge --noreplace sys-devel/bc
+
+# prerequisites now installed
+
+# make a place to keep the source
+mkdir -p /usr/local/src/GPSD
+cd /usr/local/src/GPSD
+
+# grab a shallow clone of gpsd from git.
+git clone --depth 1 https://gitlab.com/gpsd/gpsd.git
+cd gpsd
+
+# clean the tree, just in case
+scons -c
+
+# build the project
+scons
+
+# check the results
+scons check
+
+# and install if it looks good
+scons install
+----
+
+== Apple Desktop
+
+=== Special Notes for macOS X Build and Installation
+
+gpsd will build, install and run on macOs. Install the Xcode application
+from the Apple store. Then install Homebrew (https://brew.sh/) to get
+all the stuff you need, like git, scons, python, etc.
+
+As a normal user, install homebrew, then install scons and asciidoctor.
+Installing scons pulls in python3. Brew will become root as needed, so
+starting asd a normal user is just security theater.
+
+----
+$ /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+$ brew install scons asciidoctor
+----
+
+Now you need to become root. Make a place for the gpsd source to live,
+use git to install it there, then go there.  Build gpsd with "scons",
+then install it with "scons install"
+
+----
+# mkdir -p /usr/local/src/GPS
+# cd /usr/local/src/GPS
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons && scons install
+----
+
+=== Special Notes for OS X Build and Installation
+
+gpsd will build, install and run on OS X (osX).  The easiest way to
+do so is to first install the MacPorts package.  Follow their install
+procedure at: http://www.macports.org/install.php
+
+Then use their port command to install scons.  Optionally git if you
+want to access the development source.  Optionally install asciidoctor
+to build the documentation.
+
+----
+# port install scons
+# port install git
+# port install asciidoctor
+----
+
+Currently the osX port does not work with Qt5.  To see the build
+failure:
+
+----
+# port install qt5
+# scons --config=force qt_versioned=5
+----
+
+If you have Qt5 installed, and want to avoid the build failure, build
+this way:
+
+----
+# scons --config=force qt=no
+----
+
+While running gpsd, or scons check, you may run out of shared memory
+segments.  If so, you will see this error message:
+
+----
+gpsd:ERROR: shmat failed: Too many open files
+----
+
+By default OS X allows a very small number of shared segments.  You
+can check your allowed maximum number of shared segments, then increase
+the maximum number, with these commands:
+
+----
+# sysctl kern.sysv.shmseg=8
+kern.sysv.shmseg: 32 -> 8
+#   sysctl -a  | fgrep shmseg
+kern.sysv.shmseg: 8
+# sysctl kern.sysv.shmseg=16
+kern.sysv.shmseg: 8 -> 16
+#   sysctl -a  | fgrep shmseg
+kern.sysv.shmseg: 16
+----
+
+If you are using a USB based GPS you will likely need the Prolific
+PL2303 driver.  You can find it here:
+http://www.prolific.com.tw/US/ShowProduct.aspx?p_id=229&pcid=41
+
+== Special Notes for Raspberry Pi Build and Installation
+
+*gpsd* will build, install and run on the Raspberry Pi (RasPi) and Pi 2
+using Debian Jessie. Other distributions based on Debian (raspbian, etc)
+will work fine as well. The *gpsd* package in Debian Wheezy is known to be
+flaky, be sure to update to a new version of gpsd from source.
+
+=== Raspbian
+
+Before compiling gpsd from source, you will need to update your system
+as root.  Switching to the latest Raspbian distribution (Buster) is
+strongly recommended.
+
+----
+# apt-get update
+# apt-get dist-upgrade
+# rpi-update
+# reboot
+----
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd
+----
+
+Then install the required packages:
+
+----
+# apt-get install scons libncurses5-dev python-dev pps-tools
+# apt-get install git-core
+----
+
+Git-core is required to build from a git repository.  pps-tools is for
+PPS timing.
+
+The rest of the installation is just as for any other source based
+install, as already described above.
+
+=== Other Debian derivatives (including stock)
+
+==== Bullseye (11)
+
+The main difference between Bullseye and Buster (below) is that Python
+2 is not in Bullseye by default. It is available. gpsd is Python 3
+compatible, so that's what we will use on Bullseye.
+
+Multiple versions of gpsd can not co-exist on the same system.  You
+need to ensure gpsd from a package is not on the system. Also check
+for and remove any libgps?? packages.
+
+----
+# dpkg-query -l libgps* gpsd*
+.....
+# apt purge gpsd libgps28
+----
+
+Then update your system, and install the packages required by gpsd:
+
+----
+# apt-get update
+# apt-get dist-upgrade
+# reboot
+# apt-get install scons libncurses-dev python-dev pps-tools
+# apt-get install git-core
+# apt-get install build-essential manpages-dev pkg-config
+----
+
+If "apt-get install scons ..." fails, check the file "/etc/apt/sources.list".
+
+Git-core is required to build from a git repository.
+pps-tools is for PPS timing.
+Build-essential installs the compiler and associated tools.
+Manpages-dev is for the associated man pages.
+Pkg-config is a helper for scons.
+
+Gtk3 is only required to run xgps and xgpsspeed. You do not need a local
+X11 server installed, but it still pulls in a lot of packages.
+
+----
+# apt-get install python-gi-dev
+# apt-get install libgtk-3-dev
+----
+
+Ubxtool and zerk may optionally use the pyserial module for
+direct connection to the GNSS receiver:
+
+----
+# apt-get install python3-serial
+----
+
+gpsd may optional connect to dbus with the libdbus package:
+
+----
+# apt-get install libdbus-1-dev
+----
+
+gpsplot uses matplotlib, which is in the package
+python3-matplotlib.
+
+----
+# apt install python3-matplotlib
+----
+
+Several programs written in Python (xgps, xgpsspeed, etc.) are
+installed locally. So if you intend to use them, set your
+PYTHONPATH. You may wish to add it to your shell's log-in scripts to
+make it permanent. For more information on PYTHONPATH, see:
+https://docs.python.org/3/using/cmdline.html#envvar-PYTHONPATH
+
+Something like this, but see the output from the "scons install"
+command and other scons commands.
+
+----
+# export PYTHONPATH=${PYTHONPATH}:/usr/local/lib/python3/dist-packages
+----
+
+Some very old Garmin USB devices need libusb:
+
+----
+# apt-get install libusb-1.0-0-dev
+----
+
+If you wish to build the documentation, be warned it pulls in a
+lot of packages. Build the documentation is a prerequisite to
+building the HTML files for the website (www/), and also to make
+a source tarball (scons dist). To install the tools to build the
+documentation:
+
+----
+apt-get install asciidoctor
+----
+
+The rest of the installation is just as for any other source based
+install:
+
+----
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons -c && scons && scons check && scons install
+----
+
+==== Buster (10) with python2
+
+These Buster instructions seem to also work for Devuan and Maemo Leste.
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd libgps23
+----
+
+Then update your system, and install the packages required by gpsd:
+
+----
+# apt-get update
+# apt-get dist-upgrade
+# reboot
+# apt-get install scons libncurses-dev python-dev pps-tools
+# apt-get install git-core
+# apt-get install build-essential manpages-dev pkg-config
+----
+
+If "apt-get install scons" fails, check the file "/etc/apt/sources.list".
+
+Git-core is required to build from a git repository.
+pps-tools is for PPS timing.
+Build-essential installs the compiler and associated tools.
+Manpages-dev is for the associated man pages.
+Pkg-config is a helper for scons.
+
+Gtk3 is only required to run xgps and xgpsspeed.  You do not need a local
+X11 server installed, but it still pulls in a lot of packages.
+
+----
+# apt-get install python-gi-dev python-cairo-dev
+# apt-get install python-gobject-2-dev libgtk-3-dev
+----
+
+Ubxtool and zerk may optionally use the pyserial module for
+direct connection to the GNSS receiver:
+
+----
+# apt-get install python-serial
+----
+
+gpsd may optional connect to dbus with the libdbus package:
+
+----
+# apt-get install libdbus-1-dev
+----
+
+Some very old Garmin USB devices need libusb:
+
+----
+# apt-get install libusb-1.0-0-dev
+----
+
+If you wish to build the documentation, be warned it pulls in a
+lot of packages.  Build the documentation is a prerequisite to
+building the HTML files for the website (www/), and also to make
+a source tarball (scons dist).  To install the tools to build the
+documentation:
+
+----
+apt-get install asciidoctor
+----
+
+The rest of the installation is just as for any other source based
+install:
+
+----
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons --config=force && scons install
+----
+
+==== Jessie (8)
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd
+----
+
+Then install the required packages:
+
+----
+# apt-get install scons libncurses5-dev python-dev pps-tools
+# apt-get install git-core
+----
+
+Git-core is required to build from a git repository.  pps-tools is for
+PPS timing.
+
+The rest of the installation is just as for any other source based
+install, as already described above.
+
+==== Wheezy
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd
+----
+
+Wheezy, being older, requires updating the tools for compiling
+and testing gpsd:
+
+You need scons at 2.3.0 or higher to build.
+If your scons is less than 2.3.0 you will need to get a newer scons
+from wheezy-backport.  Partial instructions are detailed here:
+https://backports.debian.org/Instructions/
+
+Basically you need to add this line to /etc/apt/sources.list:
+
+----
+deb http://http.debian.net/debian wheezy-backports main
+----
+
+Then do another update:
+
+----
+apt-get update
+----
+
+Which may lead you to this error if you lack a full set of debian keys:
+
+----
+W: GPG error: http://http.debian.net wheezy-backports Release: The following signatures couldn't be verified because the public key is not available: NO_PUBKEY 8B48AD6246925553
+----
+
+Partial but detailed instructions to fix that are here:
+
+----
+https://wiki.debian.org/SecureApt
+----
+
+Use either of the following code blocks.  The first is more robust:
+
+----
+apt-get install debian-archive-keyring
+----
+
+----
+gpg --keyserver pgpkeys.mit.edu --recv 8B48AD6246925553
+gpg -a --export 46925553 |  apt-key add -
+apt-get update
+----
+
+You can now install scons from the wheezy-backports repository:
+
+----
+apt-get -t wheezy-backports install scons
+----
+
+and other tools:
+
+----
+# apt-get install scons libncurses5-dev python-dev pps-tools
+# apt-get install git-core
+----
+
+Git-core is required to build from a git repository.  pps-tools is for
+PPS timing.
+
+The rest of the installation is just as for any other source based
+install, as described above.
+
+==== Ubuntu Buster 20
+
+If you have Raspbian Buster, that is not this.
+
+Preliminary install notes.
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd
+----
+
+Then install the required packages:
+
+----
+apt install gcc scons python-gi python-gi-cairo g++
+apt install python-gobject libgtk-3-dev
+apt install libncurses5-dev libtinfo-dev  pps-tools
+apt install gir1.2-gtk-3.0
+----
+
+At some point Ubuntu renamed "python-gi" to "python3-gi".
+
+If you wish to build the documentation, be warned it pulls in a
+lot of packages.  Build the documentation is a prerequisite to
+building the HTML files for the website (www/), and also to make
+a source tarball (scons dist).  To install the tools to build the
+documentation:
+
+----
+apt install asciidoctor
+----
+
+The rest of the installation is just as for any other source based
+install, as described above.
+
+==== Ubuntu 18.04 LTS
+
+Preliminary install notes.
+
+If you have Raspbian Buster, that is not this.
+
+Multiple versions of gpsd can not co-exist on the same system.  You need
+to ensure gpsd from a package is not on the system:
+
+----
+# apt purge gpsd
+----
+
+Then install the required packages:
+
+----
+apt install gcc scons python-gi python-gi-cairo g++
+apt install libncurses5-dev libtinfo-dev  pps-tools
+apt install gir1.2-gtk-3.0
+----
+
+If you wish to build the documentation, be warned it pulls in a
+lot of packages.  Build the documentation is a prerequisite to
+building the HTML files for the website (www/), and also to make
+a source tarball (scons dist).  To install the tools to build the
+documentation:
+
+----
+apt install asciidoctor
+----
+
+The rest of the installation is just as for any other source based
+install, as described above.
+
+== BSD derivatives ==
+=== Special Notes for FreeBSD Build and Installation ===
+
+gpsd will build, install and run on FreeBSD.
+Due to the missing CAN bus support (linux/can.h), NMEA2000/CAN
+is not supported on FreeBSD.
+
+Use their pkg command to install scons, and optionally git if you
+want to access the development source.
+
+If you want to build the QT bindings, you'll also need the
+qt5-network and pkgconf packages.
+
+----
+# pkg install scons
+# pkg install git
+# ln -s /usr/local/bin/python2.7 /usr/local/bin/python
+# ln -s /usr/local/bin/python2.7 /usr/local/bin/python2
+# ln -s /usr/local/bin/python3.6 /usr/local/bin/python3
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons --config=force && scons install
+----
+
+OpenBSD names scons differently, and uses a different Python. 
+On OpenBSD 13.0, you need to do this to install scons and Python:
+
+----
+# pkg install scons-py38
+# ln -s /usr/local/bin/python3.8 /usr/local/bin/python3
+----
+
+FreeBSD fails to create the python links as required by PEP394.
+So you need to add them yourself, as above.
+
+=== Special Notes for NetBSD 8.1 Build and Installation
+
+gpsd will build, install and run on NetBSD.
+
+Use their 'pkg_add' command to install pkgin.  Then use pkgin to
+install the required tools.
+
+----
+# export PKG_PATH=\
+"http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/8.1/All"
+# pkg_add -v pkgin
+# echo http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/8.1/All > \
+   /usr/pkg/etc/pkgin/repositories.conf
+# pkgin update
+# pkgin install python37 py37-curses
+# ln -s /usr/pkg/bin/python3.7 /usr/pkg/bin/python
+# ln -s /usr/pkg/bin/python3.7 /usr/pkg/bin/python3
+# pkgin install py37-scons
+# pkgin install ncurses
+# pkgin install openssl mozilla-rootcerts
+# mozilla-rootcerts install
+# pkgin install git
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons --config=force && scons install
+----
+
+=== Special Notes for OpenBSD 6.6 and 7.x Build and Installation
+
+gpsd will build, install and run on OpenBSD.
+
+First, update your system. Then all you need for a basic gpsd install is
+scons and git. Then create the missing python link.
+
+----
+# syspatch -c
+# syspatch
+# pkg_add -u
+# pkg_add scons
+# pkg_add git
+# ln -s /usr/local/bin/python2 /usr/local/bin/python
+----
+
+Yes, OpenBSD 7.0 still uses Python 2.7.
+
+Then install the normal way.
+
+----
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons --config=force && scons install
+----
+
+=== OpenBSD 7.2
+
+OpenBSD 7.2 may require the linker flag _-fPIC_ in order to completely
+build.  Set _LDFLAGS="-fPIC"_.
+
+== Special Notes for Fedora derivatives
+=== Special Notes for Fedora 32 to 33, Build and Installation
+
+gpsd currently will build, install and run on Fedora 32, to 37.  Any
+supported architecture should work.
+
+Upgrade your packages, install the gcc compiler and tools. Clone the gpsd
+source, and then build it.  Fedora recommends a reboot after using dnf.
+
+----
+# dnf upgrade --refresh
+# dnf install -y gcc-c++ python3-devel scons asciidoctor bzip2
+# dnf install -y xz git dnf-plugins-core
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons
+# dnf builddep -y buildtmp/packaging/rpm/gpsd.spec
+# scons -c
+# scons && scons check && scons install
+----
+
+If you wish to make an rpm of your build:
+
+----
+# scons dist
+# dnf install -y chrpath fedora-packager rpmdevtools
+# rpmdev-setuptree
+# cp gpsd-3*.tar.* ~/rpmbuild/SOURCES/
+# rpmbuild -ba gpsd-3*/packaging/rpm/gpsd.spec
+----
+
+=== Special Notes for CentOS 7 Build and Installation
+
+gpsd currently will build, install and run on CentOS 7.
+
+Install the gcc compiler and tools.  Install EPEL.
+
+Note: there is no EPEL for i386.
+
+Use the yum command to install git if you
+want to access the development source.
+
+----
+# yum group install "Development Tools"
+# yum install git
+# yum install \
+   https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+# yum install scons
+# yum install python-devel
+# yum install ncurses-devel
+# yum install pps-tools-devel
+# git clone https://gitlab.com/gpsd/gpsd.git
+# cd gpsd
+# scons
+----
 
 == Leap Seconds
 
@@ -393,10 +1142,10 @@ it is possible to build gpsd without thread support if you build
 with pps=no.  You'll lose support for updating the clock from PPS
 pulses.
 
-dbus_export=no: for systems using DBUS: gpsd includes support for
-shipping fixes as DBUS notifications, compiled in by default.  This
+dbus_export=no: for systems using D-Bus: gpsd includes support for
+shipping fixes as D-Bus notifications, compiled in by default.  This
 may lead to complaint messages during testing  on systems that don't
-support DBUS. Build with the option "dbus_export=no" to disable it
+support D-Bus. Build with the option "dbus_export=no" to disable it
 
 qt=yes: libQgpsmm is a Qt version of the libgps/libgpsmm
 pair. Thanks to the multi-platform approach of Qt, it allows the gpsd
@@ -408,23 +1157,23 @@ minimal=no: people building for extremely constrained environments
 may want to set this.  It changes the default for all boolean (feature)
 options to false; thus, you get *only* the options you specify on the
 command line.  Thus, for example, if you want to turn off all features
-except socket export and nmea0183,
+except socket export.  Note the nmea0183 driver is always built.
 
-------------------------------------------------
-scons minimal=yes socket_export=yes nmea0183=yes
-------------------------------------------------
+----
+scons minimal=yes socket_export=yes
+----
 
 will do that.
 
------------------------------------------------
+----
 scons minimal=yes gpsd=False gpsdclients=False
------------------------------------------------
+----
 
 generates only libgps.a
 
------------------------------------------------
+----
 scons minimal=yes shared=True gpsd=False gpsdclients=False
------------------------------------------------
+----
 
 generates only libgps.so
 
@@ -527,14 +1276,16 @@ recommending the official toolchain from the NDK.
 
 Here are the scons switches I use:
 
+----
 scons wordsize=32 snapshot=off arch=arm sample=shell
 
-scons -j3 prefix=/usr libdir=$prefix/lib udevdir=/lib/udev
-gpsd_user=gpsd gpsd_group=uucp socket_export=1
-nmea0183=1 sirf=1
+scons -j3 prefix=/usr libdir=$prefix/lib udevdir=/lib/udev \
+  gpsd_user=gpsd gpsd_group=uucp socket_export=1 sirf=1
+----
 
 With the following environment variables:
 
+----
 TOOL_HOME=/home/samuel/android-official-last/
 export TOOL_PREFIX=${TOOL_HOME}/bin/arm-linux-androideabi
 export CXX=$TOOL_PREFIX-g++
@@ -547,6 +1298,7 @@ export CCFLAGS="-march=armv7-a -mtune=cortex-a8 -mfpu=vfp"
 export ARM_TARGET_LIB=${TOOL_HOME}/sysroot
 
 scons wordsize=32 snapshot=off arch=arm sample=shell
+----
 
 == Cross-building
 

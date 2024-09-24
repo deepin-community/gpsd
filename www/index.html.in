@@ -24,9 +24,10 @@
 <div id="Menu">
     <img src="gpsd-logo-small.png" alt="Small gpsd Logo" height="126"
     width="105"><br>
-    Home<br>
     <div>
+    <a href="@WEBSITE@">Home</a><br>
     <a href="#news">News</a><br>
+    <a href="#install">Installation &amp; Building</a><br>
     <a href="#downloads">Downloads</a><br>
     <a href="#support">Support</a><br>
     <a href="#documentation">Documentation</a><br>
@@ -67,8 +68,8 @@
     <hr>
 
     <a href="https://validator.w3.org/check/referer"><img
-          src="https://www.w3.org/Icons/valid-html401"
-          alt="Valid HTML 4.01!" height="31" width="88"></a>
+          src="html5.png"
+          alt="Valid HTML 5!" height="31" width="88"></a>
 </div>
 
 <div id="Content">
@@ -141,11 +142,11 @@ presently use <code>gpsd</code> include
 <a href="https://icculus.org/obdgpslogger/">obdgpslogger</a>,
 <a href="https://www.virtualroadside.com/geoHist/">geohist</a>,
 <a href="https://wiki.openstreetmap.org/wiki/JOSM/Plugins/LiveGPS">LiveGPS</a>,
-<a href="https://www.freedesktop.org/wiki/Software/GeoClue">geoclue</a>,
+<a href="https://www.freedesktop.org/wiki/Software/GeoClue/">geoclue</a>,
 <a href="http://www.qlandkarte.org/">qlandkartegt</a>,
 <a href="http://gpredict.oz9aec.net/">gpredict</a>,
 <a href="https://opencpn.org/">OpenCPN</a>,
-<a href="https://github.com/infinet/gpsd-navigator.git">gpsd-navigator</a>,
+<a href="https://github.com/infinet/gpsd-navigator">gpsd-navigator</a>,
 <a href="https://github.com/IvanSanchez/gpsd-ais-viewer">gpsd-ais-viewer</a>,
 and <a
 href="https://www.mozilla.org/en-US/firefox/new/">firefox/mozilla</a>.
@@ -192,10 +193,7 @@ documentation, (2) a few (as in, no more than three) eval units, and (3)
 an engineering contact at your firm.  For more, see our page
 <a href='for-vendors.html'>welcoming vendor cooperation</a>.</p>
 
-<p>There are simple <a href="/installation.html">installation
-instructions</a> for people running distributions with binary package
-systems.  Instructions for <a href="/building.html">building gpsd from
-source</a>.  See the <a href='/faq.html'>FAQ</a> for information on how
+<p>See the <a href='faq.html'>FAQ</a> for information on how
 to report bugs.</p>
 
 <p>If you appreciate GPSD, and especially if you make money from it,
@@ -203,11 +201,35 @@ please @TIPLINK@.</p>
 
 <h1 id='news'>News</h1>
 
-<p>This web page was last updated on @DATE@.  You can browse the
-project's <a href='NEWS'>news file</a> or <a href='TODO'>to-do
-list</a> here.  Note: because of the way this website is maintained,
-these files may reflect the state of the repository tip (development
-version) rather than the latest released stable version.</p>
+<dl>
+<dt><a href='NEWS'>NEWS</a> </dt>
+<dd>The project's News file.  Changes by revision.</dd>
+</dl>
+
+<dl>
+<dt><a href='TODO'>TODO</a></dt>
+<dd>The project's TODO list</dd>
+</dl>
+
+<p> This web page was last updated on @DATE@. Note: because of the
+way this website is maintained, these files reflect the state of the
+repository tip (development version) rather than the latest released
+version.</p>
+
+<h1 id='install'>Installation &amp; Building</h1>
+
+<dl>
+<dt><a href="README.html">README</a></dt>
+<dd>Project README file.</dd>
+
+<dt><a href="installation.html">INSTALL</a></dt>
+<dd>Installation instructions for people running distributions
+with binary package systems.  The GPSD project does not release any
+binary packages.</dd>
+
+<dt><a href="building.html">BUILD</a></dt>
+<dd>Instructions for building gpsd from source.</dd>
+</dl>
 
 <h1 id='downloads'>Repository, Downloads and Packages</h1>
 
@@ -230,7 +252,9 @@ line.</p>
 <h2 id='realtime'>Real Time</h2>
 
 <p>Some of the developers hang out regularly on IRC at <a
-href="irc://irc.freenode.net#gpsd">channel #gpsd at irc.freenode.net</a>.</p>
+href="irc://irc.freenode.net#gpsd">channel #gpsd at irc.freenode.net</a>,
+and at <a
+href="irc://irc.libera.chat#gpsd">channel #gpsd at irc.libera.chat</a>.</p>
 
 <h2 id='mailing-lists'>Mailing Lists</h2>
 
@@ -258,8 +282,8 @@ Berlios at <a href="https://marc.info">MARC</a>:
 <h2>Issue Tracker</h2>
 
 <p>The gpsd project tracks issues on our <a href='@ISSUES@'>issue tracker</a>.
-Please read the section on <a href='#bug-reporting'>Bug reporting</a> before
-posting on the issue tracker.</p>
+Please read the section on <a href='faq.html#bug-reporting'>Bug reporting</a>
+before posting on the issue tracker.</p>
 
 <h2>SUPPORT information</h2>
 
@@ -278,16 +302,18 @@ latest stable version.</p>
 <dd>The <code>gpsd</code> daemon.</dd>
 
 <dt><a href="gps.html">gps.1</a></dt>
-<dd>The <code>gpsd</code> sample clients. <code>cgps</code> using
-ncurses. <code>xgps</code> for X. <code>lcdgps</code> for use on 4x40
-LCD. <code>gegps</code> for use with Google Earth.</dd>
+<dd>Overview of <code>gpsd</code> client and helper programs.</dd>
+
+<dt><a href="cgps.html">cgps.1</a></dt>
+<dd>A command line ncurses client for <code>gpsd</code>.</dd>
+
+<dt><a href="gegps.html">gegps.1</a></dt>
+<dd><code>gegps</code> feeds your location to Google Earth for live
+location tracking.</dd>
 
 <dt><a href="gps2udp.html">gps2udp.1</a></dt>
 <dd>Feed the take from <code>gpsd</code> to one or more aggregation
 sites via UDP.</dd>
-
-<dt><a href="gpsfake.html">gpsfake.1</a></dt>
-<dd>The <code>gpsfake</code> test harness simulating a GPS.</dd>
 
 <dt><a href="gpscsv.html">gpscsv.1</a></dt>
 <dd>The <code>gpscsv</code> tool for reading gpsd JSON sentences and
@@ -300,8 +326,15 @@ converting them in CSV files.</dd>
 <dd>The <code>gpscat</code> tool dumps output from a serial
 device. Optionally, it can packetize the data.</dd>
 
+<dt><a href="gpsdebuginfo.html">gpsdebuginfo.1</a></dt>
+<dd>A shell script to dump debugging information.  For you convenience
+<a href="gpsdebuginfo">gpsdebuginfo</a> is available for direct download.</dd>
+
 <dt><a href="gpsdecode.html">gpsdecode.1</a></dt>
 <dd>The <code>gpsdecode</code> packet decoder.</dd>
+
+<dt><a href="gpsfake.html">gpsfake.1</a></dt>
+<dd>The <code>gpsfake</code> test harness simulating a GPS.</dd>
 
 <dt><a href="gpsmon.html">gpsmon.1</a></dt>
 <dd>The <code>gpsmon</code> real-time packet monitor and diagnostic
@@ -326,6 +359,10 @@ into a RINEX 3 file.</dd>
 <dt><a href="gpssubframe.html">gpssubframe.1</a></dt>
 <dd>The <code>gpssubframe</code> tool for reading gpsd JSON subframe
 sentences and decoding them.</dd>
+
+<dt><a href="lcdgps.html">lcdgps.1</a></dt>
+<dd>A <code>gpsd</code> client to display on a 4x20 LCD screen, using
+<code>lcdproc</code>.</dd>
 
 <dt><a href="ntpshmmon.html">ntpshmmon.1</a></dt>
 <dd>Monitor the NTP shared-memory segments created by GPSD.</dd>
@@ -354,6 +391,9 @@ request/response protocol of the <code>gpsd</code> daemon.</dd>
 <dt><a href="gpsinit.html">gpsinit.8</a></dt>
 <dd>Initialize kernel modules for use with <code>gpsd</code> daemon.</dd>
 
+<dt><a href="ppscheck.html">ppscheck.8</a></dt>
+<dd>Tool to check a serial port for PPS.</dd>
+
 </dl>
 
 <p>Also, see the <a href="faq.html">FAQ</a>.</p>
@@ -376,10 +416,17 @@ that describes particularly egregious vendor blunders.</p>
 <dd>An in-depth essay on the architecture and practices of GPSD,
 published in <cite>The Architecture of Open Source, Volume 2</cite>.</dd>
 
+<dt><a href="gpsd-client-example-code.html">GPSD Client Example Code</a></dt>
+<dd>A line by line code walk-through of a simple <code>gpsd</code> client
+written in C, and another in Python.  With a focus on common mistakes. </dd>
+
 <dt><a href="client-howto.html">GPSD Client HOWTO</a></dt>
 <dd>A programmer's guide to interfacing with <code>gpsd</code> from
 client applications. Explains the theory, points at working example
 source code, warns you what the edge cases and gotchas are.</dd>
+
+<dt><a href="gpsd-numbers-matter.html">GPSD Numbers Matter</a></dt>
+<dd>A wandering discourse on the numerology of <code>gpsd</code>.</dd>
 
 <dt><a href="gps-hacking.html">ESR's Guide to Hacking With GPS</a></dt>
 <dd>If you are new to GPS technology and don't quite understand what
@@ -463,10 +510,10 @@ of the problem.</p>
 <p>If you have an Android phone, it is possible to access its onboard
 GPS by pairing it as a Bluetooth device.  Directions from <a
 href="https://bvargo.net/blog/2010/10/17/bluetooth-blues-getting-linux-pc-use-gps-android-d/"
->Vargoville</a>. There is also a <a
+>Vargoville</a> (Dead link Mar 2021). There is also a <a
 href="https://www.appszoom.com/android_applications/tools/gps-tether_blgt.html"
->GPS Tether</a> app designed to work with GPSD, but it seems to be in early
-alpha.</p>
+>GPS Tether</a> (Dead link Mar 2021) app designed to work with GPSD, but it
+seems to be in early alpha.</p>
 
 <p>The <a href="https://sourceforge.net/projects/gpsdproxy/">GPSDproxy
 project</a> is a small program which reads GPS data from a running
@@ -481,11 +528,11 @@ useful tutorial even if your actual device isn't a Garmin 18; many
 of the setup steps and caveats will be the same.</p>
 
 <p>Diego Berge has written a prototype <a
-href="https://code.google.com/p/qtgpsc/">Qt-based client</a>, basically
+href="https://code.google.com/archive/p/qtgpsc/">Qt-based client</a>, basically
 <code>xgps</code> with a Qt look and feel.</p>
 
 <p>Egil M&#246;ller has written <a
-href="https://redhog.github.com/agpsd/">agpsd</a>,
+href="https://redhog.github.io/agpsd/">agpsd</a>,
 a gpsd replication and logging daemon with support for KML.</p>
 
 <p>You can find Debian-unstable packages
@@ -526,7 +573,7 @@ netstumbler. This program is not genetically related to
 <code>gpsd</code>.</p>
 
 <p><a
-href='http://gpsfeed.sourceforge.net/'>gpsfeed+</a> is a
+href='https://gpsfeed.sourceforge.io/'>gpsfeed+</a> is a
 program that simulates the output of a GPS in motion, and can be used
 for testing GPS-aware applications.</p>
 

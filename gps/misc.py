@@ -1,6 +1,6 @@
 # misc.py - miscellaneous geodesy and time functions
 # -*- coding: utf-8 -*-
-"""miscellaneous geodesy and time functions"""
+"""miscellaneous geodesy and time functions."""
 #
 # This file is Copyright 2010 by the GPSD project
 # SPDX-License-Identifier: BSD-2-Clause
@@ -87,7 +87,7 @@ else:  # Otherwise we do something real
         raise ValueError
 
     def make_std_wrapper(stream):
-        """Standard input/output wrapper factory function"""
+        """Standard input/output wrapper factory function."""
         # This ensures that the encoding of standard output and standard
         # error on Python 3 matches the binary encoding we use to turn
         # bytes to Unicode in polystr above.
@@ -120,14 +120,38 @@ WGS84E = 6.694379990141e-3        # 1st eccentricity squared
 WGS84E2 = 6.739496742276e-3       # 2nd eccentricy squared
 # WGS 84 value of the earth's gravitational constant for GPS user
 # GMgpsnav, valid 8-JUl-2014
+# Galileo uses μ = 3.986004418 × 1014 m3/s2
+# GLONASS uses 3.986004418e14 м3/s2
 WGS84GM = 3.9860050e14            # m^3/second^2
 # Earth's Angular Velocity, Omega dot e
 # valid 8-Jul-2014:
+# also Galileo
+# GLONASS uses 7.292115x10-5
 WGS84AV = 7.2921151467e-5         # rad/sec
 
+# GLONASS
+# ICD_GLONASS_5.1_(2008)_en.pdf
+# Table 3.2 Geodesic constants and parametres uniearth ellipsoid ПЗ 90.02
+# Earth rotation rate 7,292115x10-5 rad/s
+# Gravitational constant 398 600,4418×109 м3/s2
+# Gravitational constant of atmosphere( fMa ) 0.35×109 м3/s2
+# Speed of light 299 792 458 м/s
+# Semi-major axis 6 378 136 м
+# Flattening 1/298,257 84
+# Equatorial acceleration of gravity 978 032,84 мGal
+# Correction to acceleration of gravity at sea-level due to Atmosphere
+# 0,87 мGal
+# Second zonal harmonic of the geopotential ( J2 0 ) 1082625,75×10-9
+# Fourth zonal harmonic of the geopotential ( J4 0 ) (- 2370,89×10-9)
+# Sixth zonal harmonic of the geopotential( J6 0 ) 6,08×10-9
+# Eighth zonal harmonic of the geopotential ( J8 0 ) 1,40×10-11
+# Normal potential at surface of common terrestrial ellipsoid  (U0)
+# 62 636 861,4 м2/s2
+
 # speed of light (m/s), exact
+# same as GLONASS
 CLIGHT = 299792458.0
-# GPS_PI.  Exact!  The military says so.
+# GPS_PI.  Exact!  The GPS and Galileo say so.
 GPS_PI = 3.1415926535898
 # GPS F, sec/sqrt(m), == -2*sqrt(WGS*$M)/c^2
 GPS_F = -4.442807633e-10
@@ -184,7 +208,6 @@ def Rad2Deg(x):
 def lla2ecef(lat, lon, altHAE):
     """Convert Lat, lon (in degrees) and altHAE in meters
 to ECEF x, y and z in meters."""
-
     # convert degrees to radians
     lat *= DEG_2_RAD
     lon *= DEG_2_RAD
@@ -348,7 +371,7 @@ def EarthDistance(c1, c2):
         cosLambda = math.cos(Lambda)
         sinSigma = math.sqrt((cosU2 * sinLambda) ** 2 +
                              (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) ** 2)
-        if sinSigma == 0:
+        if 0 == sinSigma:
             return 0.0  # coincident points
         cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda
         sigma = math.atan2(sinSigma, cosSigma)
@@ -363,7 +386,7 @@ def EarthDistance(c1, c2):
         Lambda = L + (1 - C) * f * sinAlpha * (sigma + C * sinSigma *
                                                (cos2SigmaM + C * cosSigma *
                                                 (-1 + 2 * cos2SigmaM ** 2)))
-        if abs(Lambda - LambdaPrev) < CONVERGENCE_THRESHOLD:
+        if CONVERGENCE_THRESHOLD > abs(Lambda - LambdaPrev):
             break  # successful convergence
     else:
         # failure to converge
@@ -428,7 +451,7 @@ def isotime(s):
         return date + "." + repr(msec)[3:]
 
     if isinstance(s, STR_CLASS):
-        if s[-1] == "Z":
+        if "Z" == s[-1]:
             s = s[:-1]
         if "." in s:
             (date, msec) = s.split(".")
@@ -441,6 +464,21 @@ def isotime(s):
 
     # else:
     raise TypeError
+
+
+def posix2gps(posix, leapseconds):
+    """Convert POSIX time in seconds,  using leapseconds, to gps time.
+
+Return (gps_time, gps_week, gps_tow)
+"""
+
+    # GPS Epoch starts: Jan 1980 00:00:00 UTC, POSIX/Unix time: 315964800
+    gps_time = posix - 315964800
+    gps_time += leapseconds
+    # 604,800 in a GPS week
+    (gps_week, gps_tow) = divmod(gps_time, 604800)
+    return (gps_time, gps_week, gps_tow)
+
 
 # End
 # vim: set expandtab shiftwidth=4

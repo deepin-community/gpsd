@@ -4,9 +4,8 @@
  * SPDX-License-Identifier: BSD-2-clause
  */
 
-#include "../include/gpsd_config.h"  /* must be before all includes */
+#include "../include/gpsd_config.h"  // must be before all includes
 
-#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -22,130 +21,135 @@
 #include <unistd.h>
 
 #ifndef USE_QT
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif /* HAVE_SYS_SOCKET_H */
-#ifdef HAVE_WINSOCK2_H
-#include <winsock2.h>
-#endif /* HAVE_WINSOCK2_H */
+    #ifdef HAVE_SYS_SOCKET_H
+        #include <sys/socket.h>
+    #endif  // HAVE_SYS_SOCKET_H
+    #ifdef HAVE_WINSOCK2_H
+    #include <winsock2.h>
+    #endif  // HAVE_WINSOCK2_H
 #else
-#include <QTcpSocket>
-#endif /* USE_QT */
+    #include <QTcpSocket>
+#endif  // USE_QT
 
 #include "../include/gps.h"
-#include "../include/gpsd.h"
+#include "../include/gpsd.h"          // FIXME: clients chould not use gpsd.h!
 #include "../include/libgps.h"
 #include "../include/strfuncs.h"
-#include "../include/timespec.h"      /* for NS_IN_SEC */
+#include "../include/timespec.h"      // for NS_IN_SEC
 #ifdef SOCKET_EXPORT_ENABLE
 #include "../include/gps_json.h"
-
-struct privdata_t
-{
-    bool newstyle;
-    /* data buffered from the last read */
-    ssize_t waiting;
-    char buffer[GPS_JSON_RESPONSE_MAX * 2];
-    int waitcount;
-};
 
 #ifdef HAVE_WINSOCK2_H
 static bool need_init = TRUE;
 static bool need_finish = TRUE;
 
+// Ensure socket networking is initialized for Windows.
 static bool windows_init(void)
-/* Ensure socket networking is initialized for Windows. */
 {
     WSADATA wsadata;
-    /* request access to Windows Sockets API version 2.2 */
+    // request access to Windows Sockets API version 2.2
     int res = WSAStartup(MAKEWORD(2, 2), &wsadata);
-    if (res != 0) {
-      libgps_debug_trace((DEBUG_CALLS, "WSAStartup returns error %d\n", res));
+    if (0 != res) {
+        libgps_debug_trace((DEBUG_CALLS, "WSAStartup returns error %d\n", res));
     }
-    return (res == 0);
+    return (0 == res);
 }
 
+// Shutdown Windows Sockets.
 static bool windows_finish(void)
-/* Shutdown Windows Sockets. */
 {
     int res = WSACleanup();
-    if (res != 0) {
+    if (0 != res) {
         libgps_debug_trace((DEBUG_CALLS, "WSACleanup returns error %d\n", res));
     }
-    return (res == 0);
+    return (0 == res);
 }
-#endif /* HAVE_WINSOCK2_H */
+#endif  // HAVE_WINSOCK2_H
 
 int gps_sock_open(const char *host, const char *port,
                   struct gps_data_t *gpsdata)
 {
-    if (!host)
+#ifdef USE_QT
+    QTcpSocket *sock;
+#else
+    socket_t sock;
+#endif  // USE_QT
+
+    if (NULL == host) {
         host = "localhost";
-    if (!port)
+    }
+    if (NULL == port) {
         port = DEFAULT_GPSD_PORT;
+    }
 
     libgps_debug_trace((DEBUG_CALLS, "gps_sock_open(%s, %s)\n", host, port));
 
 #ifdef USE_QT
-        QTcpSocket *sock = new QTcpSocket();
+        // FIXNE: prevent CWE-690 warning: dereference of possibly-NULL pointer
+        sock = new QTcpSocket();
+        if (NULL == sock) {
+            // out of memory
+            exit(1);
+        }
         gpsdata->gps_fd = sock;
         sock->connectToHost(host, QString(port).toInt());
-        if (!sock->waitForConnected())
+        if (!sock->waitForConnected()) {
             qDebug() << "libgps::connect error: " << sock->errorString();
-        else
+        } else {
             qDebug() << "libgps::connected!";
+        }
 #else  // USE_QT
 #ifdef HAVE_WINSOCK2_H
         if (need_init) {
           need_init != windows_init();
         }
-#endif /* HAVE_WINSOCK2_H */
-        if ((gpsdata->gps_fd =
-            netlib_connectsock(AF_UNSPEC, host, port, "tcp")) < 0) {
-            errno = gpsdata->gps_fd;
+#endif  // HAVE_WINSOCK2_H
+        sock = netlib_connectsock(AF_UNSPEC, host, port, "tcp");
+        if (0 > sock) {
+            gpsdata->gps_fd = PLACEHOLDING_FD;
+            errno = sock;
             libgps_debug_trace((DEBUG_CALLS,
-                               "netlib_connectsock() returns error %d\n",
-                               errno));
+                               "netlib_connectsock() returns error %s(%d)\n",
+                               netlib_errstr(sock), sock));
             return -1;
-        } else
-            libgps_debug_trace((DEBUG_CALLS,
-                "netlib_connectsock() returns socket on fd %d\n",
-                gpsdata->gps_fd));
-#endif /* USE_QT */
+        }
+        gpsdata->gps_fd = sock;
+        libgps_debug_trace((DEBUG_CALLS,
+            "netlib_connectsock() returns socket on fd %d\n",
+            gpsdata->gps_fd));
+#endif  // USE_QT
 
-    /* set up for line-buffered I/O over the daemon socket */
-    gpsdata->privdata = (void *)malloc(sizeof(struct privdata_t));
-    if (gpsdata->privdata == NULL)
+    // set up for line-buffered I/O over the daemon socket
+    gpsdata->privdata =
+        (struct privdata_t *)calloc(1, sizeof(struct privdata_t));
+    if (NULL == gpsdata->privdata) {
         return -1;
-    PRIVATE(gpsdata)->newstyle = false;
-    PRIVATE(gpsdata)->waiting = 0;
-    PRIVATE(gpsdata)->buffer[0] = 0;
-
-    PRIVATE(gpsdata)->waitcount = 0;
+    }
     return 0;
 }
 
-/* is there input waiting from the GPS? */
-/* timeout is in uSec */
+/* check if there input waiting from the GPS?
+ * timeout is in uSec */
 bool gps_sock_waiting(const struct gps_data_t *gpsdata, int timeout)
 {
 #ifdef USE_QT
-    return ((QTcpSocket *) (gpsdata->gps_fd))->waitForReadyRead(timeout / 1000);
+    return ((QTcpSocket *)(gpsdata->gps_fd))->waitForReadyRead(timeout / 1000);
 #else
     struct timespec to;
 
     libgps_debug_trace((DEBUG_CALLS, "gps_waiting(%d): %d\n",
                        timeout, PRIVATE(gpsdata)->waitcount++));
-    if (PRIVATE(gpsdata)->waiting > 0)
+    if (0 < PRIVATE(gpsdata)->waiting) {
         return true;
+    }
 
     USTOTS(&to, timeout);
-    /* all error conditions return "not waiting" -- crude but effective */
+    // all error conditions return "not waiting" -- crude but effective
     return nanowait(gpsdata->gps_fd, &to);
-#endif // USE_QT
+#endif  // USE_QT
 }
 
-/* close a gpsd connection */
+// close a gpsd connection
 int gps_sock_close(struct gps_data_t *gpsdata)
 {
     free(PRIVATE(gpsdata));
@@ -171,7 +175,7 @@ int gps_sock_close(struct gps_data_t *gpsdata)
 #endif  // USE_QT
 }
 
-/* wait for and read data being streamed from the daemon */
+// wait for and read data being streamed from the daemon
 int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
 {
     char *eol;
@@ -182,7 +186,7 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
     errno = 0;
     gpsdata->set &= ~PACKET_SET;
 
-    /* scan to find end of message (\n), or end of buffer */
+    // scan to find end of message (\n), or end of buffer
     eol = PRIVATE(gpsdata)->buffer;
     eptr = eol + PRIVATE(gpsdata)->waiting;
 
@@ -191,20 +195,20 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
     }
 
     if (eol >= eptr) {
-        /* no full message found, try to fill buffer */
-       if (PRIVATE(gpsdata)->waiting >=
-           (ssize_t)sizeof(PRIVATE(gpsdata)->buffer)) {
-               /* buffer is full but still didn't get a message */
-               return -1;
-       }
+        // no full message found, try to fill buffer
+        if ((ssize_t)sizeof(PRIVATE(gpsdata)->buffer) <=
+            PRIVATE(gpsdata)->waiting) {
+            // buffer is full but still didn't get a message
+            return -1;
+        }
 
 #ifdef USE_QT
         status =
-            ((QTcpSocket *) (gpsdata->gps_fd))->read(PRIVATE(gpsdata)->buffer +
+            ((QTcpSocket *)(gpsdata->gps_fd))->read(PRIVATE(gpsdata)->buffer +
                  PRIVATE(gpsdata)->waiting,
                  sizeof(PRIVATE(gpsdata)->buffer) - PRIVATE(gpsdata)->waiting);
 #else   // USE_QT
-        /* read data: return -1 if no data waiting or buffered, 0 otherwise */
+        // read data: return -1 if no data waiting or buffered, 0 otherwise
         status = (int)recv(gpsdata->gps_fd,
                PRIVATE(gpsdata)->buffer + PRIVATE(gpsdata)->waiting,
                sizeof(PRIVATE(gpsdata)->buffer) - PRIVATE(gpsdata)->waiting, 0);
@@ -212,10 +216,10 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
 
 #ifdef HAVE_WINSOCK2_H
         int wserr = WSAGetLastError();
-#endif /* HAVE_WINSOCK2_H */
+#endif  // HAVE_WINSOCK2_H
 
 #ifdef USE_QT
-        if (status < 0) {
+        if (0 > status) {
             /* All negative statuses are error for QT
              *
              * read: https://doc.qt.io/qt-5/qiodevice.html#read
@@ -234,8 +238,8 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
             return -1;
         }
 
-#else  /* not USE_QT */
-        if (status <= 0) {
+#else   // not USE_QT
+        if (0 >= status) {
             /* 0 or negative
              *
              * read:
@@ -281,7 +285,7 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
              * space but still didn't get correct json -> report an error
              * -> return -1
              * if read return 0 but requested some bytes to read -> other
-             *side disconnected -> report an error -> return -1
+             * side disconnected -> report an error -> return -1
              * if read return -1 and errno is in [EAGAIN, EINTR, EWOULDBLOCK]
              * -> not an error, we'll retry later -> return 0
              * if read return -1 and errno is not in [EAGAIN, EINTR,
@@ -292,45 +296,50 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
             /*
              * check for not error cases first: EAGAIN, EINTR, etc
              */
-             if (status < 0) {
+             if (0 > status ) {
 #ifdef HAVE_WINSOCK2_H
-                if (wserr == WSAEINTR || wserr == WSAEWOULDBLOCK)
+                if (WSAEINTR  == wserr ||
+                    WSAEWOULDBLOCK == wserr) {
                     return 0;
+                }
 #else
-                if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                if (EINTR == errno ||
+                    EAGAIN == errno ||
+                    EWOULDBLOCK == errno) {
                     return 0;
-#endif /* HAVE_WINSOCK2_H */
+                }
+#endif  // HAVE_WINSOCK2_H
              }
 
-             /* disconnect or error */
+             // disconnect or error
              return -1;
         }
-#endif /* USE_QT */
+#endif  // USE_QT
 
-        /* if we just received data from the socket, it's in the buffer */
+        // if we just received data from the socket, it's in the buffer
         PRIVATE(gpsdata)->waiting += status;
 
-        /* there's new buffered data waiting, check for full message */
+        // there's new buffered data waiting, check for full message
         eol = PRIVATE(gpsdata)->buffer;
         eptr = eol + PRIVATE(gpsdata)->waiting;
 
-        while ((eol < eptr) && (*eol != '\n')) {
-                eol++;
+        while ((eol < eptr) && ('\n' != *eol)) {
+            eol++;
         }
 
         if (eol >= eptr) {
-            /* still no full message, give up for now */
+            // still no full message, give up for now
             return 0;
         }
     }
 
-    /* eol now points to trailing \n in a full message */
+    // eol now points to trailing \n in a full message
     *eol = '\0';
     if (NULL != message) {
         strlcpy(message, PRIVATE(gpsdata)->buffer, message_len);
     }
     (void)clock_gettime(CLOCK_REALTIME, &gpsdata->online);
-    /* unpack the JSON message */
+    // unpack the JSON message
     status = gps_unpack(PRIVATE(gpsdata)->buffer, gpsdata);
 
     /*
@@ -351,11 +360,11 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
 
     response_length = eol - PRIVATE(gpsdata)->buffer + 1;
 
-    /* calculate length of good data still in buffer */
+    // calculate length of good data still in buffer
     PRIVATE(gpsdata)->waiting -= response_length;
 
     if (0 >= PRIVATE(gpsdata)->waiting) {
-        /* no waiting data, or overflow, clear the buffer, just in case */
+        // no waiting data, or overflow, clear the buffer, just in case
         *PRIVATE(gpsdata)->buffer = '\0';
         PRIVATE(gpsdata)->waiting = 0;
     } else {
@@ -365,28 +374,37 @@ int gps_sock_read(struct gps_data_t *gpsdata, char *message, int message_len)
     }
     gpsdata->set |= PACKET_SET;
 
-    return (status == 0) ? (int)response_length : status;
+    return (0 == status) ? (int)response_length : status;
 }
 
 /* unpack a gpsd response into a status structure, buf must be writeable.
  * gps_unpack() currently returns 0 in all cases, but should it ever need to
  * return an error status, it must be < 0.
  */
-int gps_unpack(char *buf, struct gps_data_t *gpsdata)
+int gps_unpack(const char *buf, struct gps_data_t *gpsdata)
 {
-    libgps_debug_trace((DEBUG_CALLS, "gps_unpack(%s)\n", buf));
+    char vbuf[GPS_JSON_COMMAND_MAX];
+    libgps_debug_trace((DEBUG_CALLS, "gps_unpack(%s)\n",
+                        gps_visibilize(vbuf, sizeof(vbuf),
+                                       buf, strnlen(buf, sizeof(vbuf)))));
 
-    /* detect and process a JSON response */
-    if (buf[0] == '{') {
+    // detect and process a JSON response
+    if ('{' == buf[0]) {
         const char *jp = buf, **next = &jp;
-        while (next != NULL && *next != NULL && next[0][0] != '\0') {
+
+        while (NULL != next &&
+               NULL != *next &&
+               '\0' != next[0][0]) {
             libgps_debug_trace((DEBUG_CALLS,
                                "gps_unpack() segment parse '%s'\n",
-                               *next));
-            if (libgps_json_unpack(*next, gpsdata, next) == -1)
+                               gps_visibilize(vbuf, sizeof(vbuf), *next,
+                                              strnlen(*next, sizeof(vbuf)))));
+            if (-1 == libgps_json_unpack(*next, gpsdata, next)) {
                 break;
-            if (libgps_debuglevel >= 1)
+            }
+            if (1 <= libgps_debuglevel) {
                 libgps_dump_state(gpsdata);
+            }
         }
     }
 
@@ -395,114 +413,148 @@ int gps_unpack(char *buf, struct gps_data_t *gpsdata)
                         "final flags: (0x%08lx) %s\n",
                         (unsigned long)gpsdata->set,
                         gps_maskdump(gpsdata->set)));
-#endif
+#endif  // USE_QT
     return 0;
 }
 
+// return the contents of the client data buffer
 const char *gps_sock_data(const struct gps_data_t *gpsdata)
-/* return the contents of the client data buffer */
 {
-    /* no length data, so pretty useless... */
+    // no length data, so pretty useless...
     return PRIVATE(gpsdata)->buffer;
 }
 
+/* send a command to the gpsd instance
+ *
+ * Return: 0 -- success
+ * Return: negative -- fail
+ */
+// FIXME: pass in buf_len
 int gps_sock_send(struct gps_data_t *gpsdata, const char *buf)
-/* send a command to the gpsd instance */
 {
+    size_t buf_len = strnlen(buf, BUFSIZ);
+
 #ifdef USE_QT
     QTcpSocket *sock = (QTcpSocket *) gpsdata->gps_fd;
-    sock->write(buf, strlen(buf));
-    if (sock->waitForBytesWritten())
+    sock->write(buf, buf_len);
+    if (sock->waitForBytesWritten()) {
         return 0;
-    else {
-        qDebug() << "libgps::send error: " << sock->errorString();
-        return -1;
     }
+
+    qDebug() << "libgps::send error: " << sock->errorString();
 #else   // USE_QT
+    ssize_t sent;
 #ifdef HAVE_WINSOCK2_H
-    if (send(gpsdata->gps_fd, buf, strlen(buf), 0) == (ssize_t) strlen(buf))
+    sent = send(gpsdata->gps_fd, buf, buf_len, 0);
 #else
-    if (write(gpsdata->gps_fd, buf, strlen(buf)) == (ssize_t) strlen(buf))
+    sent = write(gpsdata->gps_fd, buf, buf_len);
 #endif /* HAVE_WINSOCK2_H */
+    if ((ssize_t)buf_len == sent) {
         return 0;
-    else
-        return -1;
+    }
+    (void)fprintf(stderr, "gps_sock_send() write %ld, s/b %ld\n",
+                  (long)sent, (long)buf_len);
 #endif  // USE_QT
+    return -1;
 }
 
-/* ask gpsd to stream reports at you, hiding the command details */
-int gps_sock_stream(struct gps_data_t *gpsdata, unsigned int flags, void *d)
+// ask gpsd to stream reports at you, hiding the command details
+int gps_sock_stream(struct gps_data_t *gpsdata, watch_t flags,
+                    const char *d)
 {
     char buf[GPS_JSON_COMMAND_MAX] = "?WATCH={\"enable\":";
 
-    if ((flags & (WATCH_JSON | WATCH_NMEA | WATCH_RAW)) == 0) {
+    if (0 == (flags & (WATCH_JSON | WATCH_NMEA | WATCH_RAW))) {
         flags |= WATCH_JSON;
     }
-    if ((flags & WATCH_DISABLE) != 0) {
+    if (0 != (flags & WATCH_DISABLE)) {
         (void)strlcat(buf, "false", sizeof(buf));
-        if (flags & WATCH_JSON)
+        if (flags & WATCH_JSON) {
             (void)strlcat(buf, ",\"json\":false", sizeof(buf));
-        if (flags & WATCH_NMEA)
+        }
+        if (flags & WATCH_NMEA) {
             (void)strlcat(buf, ",\"nmea\":false", sizeof(buf));
-        if (flags & WATCH_RAW)
+        }
+        if (flags & WATCH_RAW) {
             (void)strlcat(buf, ",\"raw\":1", sizeof(buf));
-        if (flags & WATCH_RARE)
+        }
+        if (flags & WATCH_RARE) {
             (void)strlcat(buf, ",\"raw\":0", sizeof(buf));
-        if (flags & WATCH_SCALED)
+        }
+        if (flags & WATCH_SCALED) {
             (void)strlcat(buf, ",\"scaled\":false", sizeof(buf));
-        if (flags & WATCH_TIMING)
+        }
+        if (flags & WATCH_TIMING) {
             (void)strlcat(buf, ",\"timing\":false", sizeof(buf));
-        if (flags & WATCH_SPLIT24)
+        }
+        if (flags & WATCH_SPLIT24) {
             (void)strlcat(buf, ",\"split24\":false", sizeof(buf));
-        if (flags & WATCH_PPS)
+        }
+        if (flags & WATCH_PPS) {
             (void)strlcat(buf, ",\"pps\":false", sizeof(buf));
+        }
         // no device here?
-    } else {                    /* if ((flags & WATCH_ENABLE) != 0) */
+    } else {                    // if (0 != (flags & WATCH_ENABLE)) */
         (void)strlcat(buf, "true", sizeof(buf));
-        if (flags & WATCH_JSON)
+        if (flags & WATCH_JSON) {
             (void)strlcat(buf, ",\"json\":true", sizeof(buf));
-        if (flags & WATCH_NMEA)
+        }
+        if (flags & WATCH_NMEA) {
             (void)strlcat(buf, ",\"nmea\":true", sizeof(buf));
-        if (flags & WATCH_RARE)
+        }
+        if (flags & WATCH_RARE) {
             (void)strlcat(buf, ",\"raw\":1", sizeof(buf));
-        if (flags & WATCH_RAW)
+        }
+        if (flags & WATCH_RAW) {
             (void)strlcat(buf, ",\"raw\":2", sizeof(buf));
-        if (flags & WATCH_SCALED)
+        }
+        if (flags & WATCH_SCALED) {
             (void)strlcat(buf, ",\"scaled\":true", sizeof(buf));
-        if (flags & WATCH_TIMING)
+        }
+        if (flags & WATCH_TIMING) {
             (void)strlcat(buf, ",\"timing\":true", sizeof(buf));
-        if (flags & WATCH_SPLIT24)
+        }
+        if (flags & WATCH_SPLIT24) {
             (void)strlcat(buf, ",\"split24\":true", sizeof(buf));
-        if (flags & WATCH_PPS)
+        }
+        if (flags & WATCH_PPS) {
             (void)strlcat(buf, ",\"pps\":true", sizeof(buf));
-        if (flags & WATCH_DEVICE)
-            str_appendf(buf, sizeof(buf), ",\"device\":\"%s\"", (char *)d);
+        }
+        if (flags & WATCH_DEVICE) {
+            str_appendf(buf, sizeof(buf), ",\"device\":\"%s\"", d);
+        }
     }
     (void)strlcat(buf, "};", sizeof(buf));
     libgps_debug_trace((DEBUG_CALLS, "gps_sock_stream() command: %s\n", buf));
     return gps_send(gpsdata, buf);
 }
 
-/* run a socket main loop with a specified handler */
+/* run a socket main loop with a specified handler
+ *
+ * Returns: -1 on timeout
+ *          -2 on read error
+ * FIXME: read error should return different than timeout
+ */
 int gps_sock_mainloop(struct gps_data_t *gpsdata, int timeout,
                       void (*hook)(struct gps_data_t *gpsdata))
 {
+
     for (;;) {
+        int status;
+
         if (!gps_waiting(gpsdata, timeout)) {
             return -1;
-        } else {
-            int status = gps_read(gpsdata, NULL, 0);
-
-            if (status == -1)
-                return -1;
-            if (status > 0)
-                (*hook)(gpsdata);
         }
+        status = gps_read(gpsdata, NULL, 0);
+
+        if (0 > status) {
+            break;
+        }
+        (*hook)(gpsdata);
     }
-    //return 0;
+    return -2;
 }
 
-#endif /* SOCKET_EXPORT_ENABLE */
+#endif  // SOCKET_EXPORT_ENABLE
 
-/* end */
 // vim: set expandtab shiftwidth=4
