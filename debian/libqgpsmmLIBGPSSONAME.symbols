@@ -151,8 +151,6 @@ libQgpsmm.so.LIBGPSSONAME libqgpsmmLIBGPSSONAME #MINVER#
 #MISSING: 3.11# (c++)"netlib_localsocket(char const*, int)@Base" 3.5
 #MISSING: 3.11# (c++)"netlib_sock2ip(int)@Base" 3.5
  safe_atof@Base 3.3
- strlcat@Base 3.3
- strlcpy@Base 3.3
  timespec_str@Base 3.20
  timespec_to_iso8601@Base 3.20
 #MISSING: 3.20# timestamp@Base 3.3
