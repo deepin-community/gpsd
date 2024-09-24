@@ -24,7 +24,6 @@ Build-Depends:
  libudev-dev [linux-any],
  libusb-1.0-0-dev,
  lsb-release,
- makedev,
  pkg-config,
  po-debconf,
  pps-tools (>= 0.20120406+g0deb9c7e-2~) [linux-any],
