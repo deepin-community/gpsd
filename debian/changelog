@@ -1,3 +1,9 @@
+gpsd (3.25-2deepin3) unstable; urgency=medium
+
+  * Update symbols.
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Tue, 24 Sep 2024 23:38:51 +0800
+
 gpsd (3.25-2deepin1) unstable; urgency=medium
 
   * Remove makedev from build-dep

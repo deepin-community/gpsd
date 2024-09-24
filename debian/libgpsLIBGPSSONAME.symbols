@@ -106,8 +106,6 @@ libgps.so.LIBGPSSONAME libgpsLIBGPSSONAME #MINVER#
  sbits@Base 3.5-4~
  shiftleft@Base 3.12
  shm_get@Base 3.25
- strlcat@Base 3.3
- strlcpy@Base 3.3
 #MISSING: 3.20# timestamp@Base 3.3
  timespec_str@Base 3.20
  timespec_to_iso8601@Base 3.20
