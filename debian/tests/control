@@ -1,8 +1,11 @@
-Tests: check-service
+Tests:
+ check-service,
 Depends:
  coreutils,
  gpsd,
  grep,
  systemd,
  telnet,
-Restrictions: needs-root, isolation-container
+Restrictions:
+ isolation-container,
+ needs-root,
