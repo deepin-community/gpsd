@@ -6,7 +6,7 @@ Source: https://download-mirror.savannah.gnu.org/releases/gpsd/
 Files: *
 Copyright: 1997-2002, Remco Treffkorn
            2005, Eric S. Raymond
-           1997-2023, GPSD project
+           1997-2024, GPSD project
 License: BSD-2-clause
 
 Files: clients/cgps.c clients/lcdgps.c
@@ -32,7 +32,7 @@ License: BSD-2-clause
 
 Files: contrib/apparmor/usr.sbin.gpsd debian/usr.sbin.gpsd
 Copyright: 2018 Canonical Ltd.
-           2020-2023 by the GPSD project
+           2020-2025 by the GPSD project
 License: BSD-2-clause
 
 Files: contrib/skyview2svg.py.in

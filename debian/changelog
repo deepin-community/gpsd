@@ -1,14 +1,93 @@
-gpsd (3.25-2deepin3) unstable; urgency=medium
+gpsd (3.25-5+deb13u2) trixie; urgency=medium
 
-  * Update symbols.
+  * Fix CVE-2026-58459 (see #1141962). A command injection vulnerability
+    exists in the gpsprof client. The subtype field, sourced from a
+    DEVICES JSON log entry or an NMEA PGRMT sentence, is written into
+    the generated gnuplot program via a set title statement with only
+    double quote characters escaped. An attacker who controls the GPS
+    device subtype can embed backtick payloads and execute arbitrary
+    shell commands as the user running gnuplot when the generated plot
+    is rendered.
+  * Fix CVE-2026-60122. A code injection vulnerability exists in the
+    gpsprof client. The SKY.satellites[].used field is inserted
+    unsanitized into a gnuplot heredoc data block. An attacker who
+    controls the GPS input data can supply a used value containing the
+    string EOD to terminate the heredoc early and append gnuplot
+    system() calls, achieving OS command execution as the user running
+    gpsprof when the generated plot script is processed by gnuplot in
+    polar mode.
 
- -- Tianyu Chen <sweetyfish@deepin.org>  Tue, 24 Sep 2024 23:38:51 +0800
+ -- Boian Bonev <bbonev@ipacct.com>  Sat, 25 Jul 2026 21:40:31 +0000
 
-gpsd (3.25-2deepin1) unstable; urgency=medium
+gpsd (3.25-5+deb13u1) trixie; urgency=medium
 
-  * Remove makedev from build-dep
+  * Non-Maintainer Upload by LTS team
+  * Add salsa CI for trixie
+  * Fix CVE-2025-67268 (Closes: #1124800).
+    gpsd contains a heap-based out-of-bounds write
+    vulnerability in the drivers/driver_nmea2000.c file.
+    The hnd_129540 function, which handles NMEA2000 PGN 129540
+    (GNSS Satellites in View) packets, fails to validate the
+    user-supplied satellite count against the size of the skyview
+    array (184 elements). This allows an attacker to write beyond
+    the bounds of the array by providing a satellite count up
+    to 255, leading to memory corruption, Denial of Service (DoS),
+    and potentially arbitrary code execution.
+  * Fix CVE-2025-67269 (Closes: #1124799).
+    An integer underflow vulnerability exists in the `nextstate()`
+    function in `gpsd/packet.c`.
+    When parsing a NAVCOM packet, the payload length is calculated
+    using `lexer->length = (size_t)c - 4` without checking if
+    the input byte `c` is less than 4. This results in an unsigned
+    integer underflow, setting `lexer->length` to a very large value
+    (near `SIZE_MAX`). The parser then enters a loop attempting to
+    consume this massive number of bytes, causing 100% CPU utilization
+    and a Denial of Service (DoS) condition.
 
- -- Tianyu Chen <sweetyfish@deepin.org>  Tue, 24 Sep 2024 22:24:38 +0800
+ -- Bastien Roucariès <rouca@debian.org>  Sat, 17 Jan 2026 17:51:45 +0100
+
+gpsd (3.25-5) unstable; urgency=medium
+
+  * Fix apparmor profile to work on usrmerged systems too (Closes: #1093437)
+  * Add build-dep on python3-setuptools (Closes: #1080885)
+  * Bump standards to 4.7.0, no changes
+  * Remove the unused lintian overrides
+  * Update debian copyright year
+
+ -- Boian Bonev <bbonev@ipacct.com>  Sun, 19 Jan 2025 16:06:33 +0000
+
+gpsd (3.25-4) unstable; urgency=medium
+
+  * Mark strlcat/strlcpy as MISSING in .sybmols (Closes: #1071311)
+
+ -- Boian Bonev <bbonev@ipacct.com>  Thu, 23 May 2024 20:36:33 +0000
+
+gpsd (3.25-3) unstable; urgency=medium
+
+  * Upload to unstable (Closes: #1063318)
+  * Change build-dep on dpkg-dev to avoid bad backports
+  * wrap-and-sort control files
+  * Remove makedev from build-dep (Closes: #986713)
+  * Install systemd service files in /usr (Closes: #1059185)
+
+ -- Boian Bonev <bbonev@ipacct.com>  Wed, 28 Feb 2024 16:16:30 +0000
+
+gpsd (3.25-3~exp1) experimental; urgency=medium
+
+  * Fix a typo in d/rules
+  * Convert lintian overrides to templates
+  * Fix a typo in lintian overrides
+  * Replace obsolete pkg-config w/ pkgconf
+  * Update copyright years
+
+ -- Boian Bonev <bbonev@ipacct.com>  Sun, 11 Feb 2024 13:30:56 +0000
+
+gpsd (3.25-2.1) experimental; urgency=medium
+
+  * Non-maintainer upload.
+  * Rename libraries for 64-bit time_t transition.
+
+ -- Steve Langasek <vorlon@debian.org>  Tue, 06 Feb 2024 05:50:03 +0000
 
 gpsd (3.25-2) unstable; urgency=medium
 
